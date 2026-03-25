@@ -1,0 +1,7 @@
+# Exclude development files from Vercel deployment
+node_modules
+.next
+.git
+*.log
+.env*.local
+README.md

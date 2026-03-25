@@ -1,0 +1,231 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Minecraft Font (Monocraft - MIT licensed) */
+@font-face {
+  font-family: 'Minecraft';
+  src: url('/fonts/Monocraft.ttc') format('collection');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --glass-bg-light: rgba(255, 255, 255, 0.7);
+  --glass-border-light: rgba(255, 255, 255, 0.3);
+  --glass-bg-dark: rgba(20, 20, 20, 0.7);
+  --glass-border-dark: rgba(255, 255, 255, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Ensure pixel art looks sharp - apply to Minecraft textures/items */
+.image-pixelated {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges; /* Firefox */
+  image-rendering: crisp-edges;
+}
+
+/* Prevent text overflow in message bubbles */
+.overflow-wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Force all prose children to respect container width on mobile */
+.prose {
+  max-width: 100% !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prose pre,
+.prose code,
+.prose table {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+body {
+  font-family: 'Minecraft', 'Courier New', monospace;
+  font-size: 12px;
+  position: relative;
+}
+
+@media (min-width: 640px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+/* Glassmorphism utility classes */
+@layer components {
+  .glass {
+    @apply backdrop-blur-md border;
+  }
+  
+  .glass-light {
+    background: var(--glass-bg-light);
+    border-color: var(--glass-border-light);
+  }
+  
+  .glass-dark {
+    background: var(--glass-bg-dark);
+    border-color: var(--glass-border-dark);
+  }
+  
+  .glass-container {
+    @apply glass rounded-lg shadow-xl;
+  }
+
+  /* Minecraft book theme for user messages (light mode) */
+  .book-theme {
+    background: linear-gradient(180deg, #F4E8D0 0%, #E8DCC4 100%);
+    box-shadow: inset 0 0 20px rgba(60, 36, 21, 0.1);
+  }
+  
+  .book-text {
+    color: #3C2415;
+  }
+
+  /* Dark mode keeps glassmorphism for user messages */
+  .dark .book-theme {
+    background: rgba(93, 173, 226, 0.3);
+    box-shadow: none;
+  }
+  
+  .dark .book-text {
+    color: #e5e7eb;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 100, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 100, 0.7);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Minecraft text stroke — white text with black outline for readability on textures */
+.text-stroke {
+  -webkit-text-stroke: 3px #000;
+  paint-order: stroke fill;
+  text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+}
+
+.text-stroke-sm {
+  -webkit-text-stroke: 2px #000;
+  paint-order: stroke fill;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
+
+/* Nearest-neighbor upscaling for Minecraft pixel art */
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Minecraft-themed tables */
+.prose table {
+  @apply border-collapse w-full;
+}
+
+.prose thead {
+  @apply bg-gradient-to-b from-stone-600 to-stone-700 text-white;
+}
+
+.prose th {
+  @apply border-2 border-stone-800 dark:border-stone-900 px-2 sm:px-4 py-1 sm:py-2 font-bold text-left text-xs sm:text-sm;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.prose td {
+  @apply border border-stone-400 dark:border-stone-600 px-2 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm;
+}
+
+.prose tbody tr:nth-child(odd) {
+  @apply bg-stone-100/50 dark:bg-stone-800/30;
+}
+
+.prose tbody tr:nth-child(even) {
+  @apply bg-stone-200/50 dark:bg-stone-700/30;
+}
+
+.prose tbody tr:hover {
+  @apply bg-ore-gold/20 dark:bg-ore-gold/10 transition-colors;
+}
+
+/* Enhanced markdown formatting support */
+.prose strong {
+  @apply font-bold text-gray-900 dark:text-white;
+}
+
+.prose em {
+  @apply italic;
+}
+
+.prose u {
+  @apply underline;
+}
+
+.prose del {
+  @apply line-through opacity-70;
+}
+
+/* Minecraft color-coded text from § codes */
+.prose span[style*="color"] {
+  @apply font-minecraft;
+}
+
+.prose p {
+  @apply mb-2;
+}
+
+.prose ul, .prose ol {
+  @apply my-2 ml-4;
+}
+
+.prose li {
+  @apply mb-1;
+}

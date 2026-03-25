@@ -1,0 +1,8 @@
+beautifulsoup4
+pandas
+sentence-transformers>=3.0.0
+tiktoken>=0.7.0
+nltk>=3.8.0
+einops>=0.8.0
+torch>=2.0.0
+
