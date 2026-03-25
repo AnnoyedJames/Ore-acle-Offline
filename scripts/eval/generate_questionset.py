@@ -1,10 +1,10 @@
-"""
-Evaluation Dataset Generator for Ore-acle Offline
-==================================================
+﻿"""
+Evaluation Question Set Generator for Ore-acle Offline
+======================================================
 
-Generates a gold-standard evaluation dataset by sampling chunks from the
+Generates a gold-standard evaluation question set by sampling chunks from the
 processed Minecraft Wiki corpus and using an LLM to produce grounded
-question-answer pairs.
+questions, answers, difficulty levels, and relevant links.
 
 Design Rationale
 ----------------
@@ -14,16 +14,15 @@ scale. Instead, we exploit the fact that we *already have* the source text:
 
 1. **Sample** a random page/chunk from the corpus.
 2. **Generate** 1-2 natural questions whose answers are fully contained in
-   that chunk's text.
-3. **Extract** the most relevant inter-wiki links *from that chunk's own
+   that chunk's text, determining their difficulty (easy/medium/hard).
+3. **Extract** up to 3 most relevant inter-wiki links *from that chunk's own
    related_pages field* to serve as secondary gold retrieval targets.
-4. The chunk's own `page_url` is always the primary gold URL.
 
 This gives us a scalable, automatically-generated ground truth where:
-- **Retrieval gold** = the source page URL + related page URLs
+- **Retrieval gold** = the source page + up to 3 relevant links
 - **Answer gold**    = the LLM-generated reference answer (grounded in text)
 
-The dataset is saved incrementally to `data/eval/eval_dataset.json` so
+The dataset is saved incrementally to `data/eval/questionset.json` so
 partial runs are resumable.
 
 Output Schema (per item)
@@ -31,12 +30,13 @@ Output Schema (per item)
 ```json
 {
   "question":        "What Y-level should you mine for diamonds?",
-  "gold_answer":     "Diamond ore generates between Y -64 and Y 16...",
-  "gold_urls":       ["https://minecraft.wiki/w/Diamond", ...],
-  "source_chunk_id": "1aa5db556551eba9",
+  "answer":          "Diamond ore generates between Y -64 and Y 16...",
+  "difficulty":      "easy",
+  "relevant_links":  ["https://minecraft.wiki/w/Diamond", "https://minecraft.wiki/w/Ore"],
   "source_page":     "Diamond",
+  "source_chunk_id": "1aa5db556551eba9",
   "source_text":     "<verbatim chunk text used to generate this pair>",
-  "generator_model":  "google/gemini-2.5-flash-preview:thinking",
+  "generator_model": "google/gemini-2.5-flash-preview:thinking",
   "generated_at":    "2026-03-25T14:30:00Z"
 }
 ```
@@ -45,13 +45,13 @@ Usage
 -----
 ```bash
 # Generate 50 QA pairs (samples 30 chunks, ~1-2 pairs each)
-python scripts/eval/generate_dataset.py --num-chunks 30
+python scripts/eval/generate_questionset.py --num-chunks 30
 
 # Append more pairs to an existing dataset
-python scripts/eval/generate_dataset.py --num-chunks 20 --append
+python scripts/eval/generate_questionset.py --num-chunks 20 --append
 
 # Use a different model
-python scripts/eval/generate_dataset.py --model google/gemini-2.5-pro-preview
+python scripts/eval/generate_questionset.py --model google/gemini-2.5-pro-preview
 ```
 
 Environment Variables
@@ -93,8 +93,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 load_dotenv()
 
-# OpenRouter acts as a universal LLM gateway. We use the standard OpenAI SDK
-# pointed at their base URL so we can swap models with a single string change.
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 if not OPENROUTER_API_KEY:
     logger.warning(
@@ -107,16 +105,9 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
 )
 
-# Default model: Gemini 2.5 Flash (with thinking / extended reasoning).
-# Thinking models produce higher-quality, well-reasoned QA pairs because they
-# can internally verify that the question is actually answerable from the text.
 DEFAULT_MODEL = "google/gemini-2.5-flash-preview:thinking"
 
-# Minimum word count for a chunk to be considered "eval-worthy".
-# Short stubs don't provide enough context for meaningful questions.
 MIN_CHUNK_WORDS = 50
-
-# Wiki metadata noise that leaks through the text cleaner in some chunks.
 NOISE_MARKERS = ["NewPP limit report", "Parsed by mediawiki"]
 
 
@@ -124,12 +115,13 @@ NOISE_MARKERS = ["NewPP limit report", "Parsed by mediawiki"]
 # Pydantic schemas for structured LLM output
 # ---------------------------------------------------------------------------
 class QAPair(BaseModel):
-    """A single question-answer pair with supporting source URLs."""
+    """A single question-answer pair with supporting metadata."""
     model_config = ConfigDict(strict=False)
 
     question: str
-    gold_answer: str
-    gold_urls: List[str]
+    answer: str
+    relevant_links: List[str]
+    difficulty: str
 
 
 class GeneratedEval(BaseModel):
@@ -143,16 +135,6 @@ class GeneratedEval(BaseModel):
 # Chunk sampling
 # ---------------------------------------------------------------------------
 def load_and_filter_chunks(file_path: str) -> list:
-    """Load the full chunk corpus and filter to evaluation-quality content.
-
-    Filtering rules:
-    - Skip disambiguation pages (low information density).
-    - Skip chunks with fewer than MIN_CHUNK_WORDS words.
-    - Skip chunks containing MediaWiki parser metadata noise.
-
-    Returns the full filtered list (not yet sampled). Sampling is done
-    separately so the caller can control the sample size.
-    """
     logger.info(f"Loading chunks from {file_path} ...")
     with open(file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -174,7 +156,6 @@ def load_and_filter_chunks(file_path: str) -> list:
 
 
 def sample_chunks(chunks: list, count: int, seed: Optional[int] = None) -> list:
-    """Randomly sample `count` chunks. Optionally set a seed for reproducibility."""
     if seed is not None:
         random.seed(seed)
     return random.sample(chunks, min(count, len(chunks)))
@@ -186,28 +167,25 @@ def sample_chunks(chunks: list, count: int, seed: Optional[int] = None) -> list:
 SYSTEM_PROMPT = """\
 You are an expert evaluation dataset creator for a Minecraft Wiki RAG system.
 
-Your job: Given a chunk of wiki text, generate 1-2 high-quality question-answer pairs
+Your job: Given a chunk of wiki text, generate 1-2 high-quality testing questions
 that are **strictly grounded** in the provided text.
 
 Rules:
 - Questions must sound like real user queries (natural language, not robotic).
-- Answers must be fully supported by the chunk text — do NOT add outside knowledge.
-- Focus on: game mechanics, crafting recipes, mob behavior, block properties, version
-  history, biome details, redstone mechanics, or any concrete factual content.
-- Skip if the chunk is too vague or lacks concrete facts.
-- Include the source page URL as a gold URL. If the text references other wiki pages
-  that are directly relevant to answering the question, include those URLs too."""
+- Answers must be fully supported by the chunk text  do NOT add outside knowledge.
+- Determine the 'difficulty' of the question: 'easy' (direct fact extraction), 'medium' (requires combining 2+ facts), or 'hard' (complex reasoning/edge cases).
+- Identify up to 3 most relevant links (from the provided related pages list or derived from the text) that someone answering this question would want to read.
+- Focus on: game mechanics, crafting recipes, mob behavior, block properties, etc.
+- Skip if the chunk is too vague or lacks concrete facts."""
 
 
 def build_user_prompt(chunk: dict) -> str:
-    """Construct the user-facing prompt with the chunk text and metadata."""
     text = chunk.get("text", "")
     page_title = chunk.get("page_title", "")
     page_url = chunk.get("page_url", "")
     related = chunk.get("related_pages", [])
 
-    # Provide related page URLs so the model can reference them as gold URLs
-    # when the question spans multiple topics.
+    # Provide related page URLs so the model can reference them
     related_urls = [
         f"https://minecraft.wiki/w/{name.replace(' ', '_')}"
         for name in related[:10]  # Cap at 10 to avoid prompt bloat
@@ -216,29 +194,22 @@ def build_user_prompt(chunk: dict) -> str:
     return f"""\
 Page: {page_title}
 Primary URL: {page_url}
-Related pages (use if relevant to the question): {json.dumps(related_urls)}
+Related pages context: {json.dumps(related_urls)}
 
 --- CHUNK TEXT START ---
 {text}
 --- CHUNK TEXT END ---
 
 Generate 1-2 QA pairs as JSON matching this schema:
-{{"items": [{{"question": "...", "gold_answer": "...", "gold_urls": ["..."]}}]}}"""
+{{"items": [{{"question": "...", "answer": "...", "relevant_links": ["url1", "url2"], "difficulty": "easy|medium|hard"}}]}}"""
 
 
 def parse_json_from_text(text: str) -> Optional[dict]:
-    """Fallback JSON parser that extracts the first JSON object from free text.
-
-    Some models (especially via OpenRouter) may wrap JSON in markdown fences
-    or add preamble text. This function robustly extracts the JSON payload.
-    """
-    # Try direct parse first
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    # Try to find JSON inside markdown code fences
     match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if match:
         try:
@@ -246,7 +217,6 @@ def parse_json_from_text(text: str) -> Optional[dict]:
         except json.JSONDecodeError:
             pass
 
-    # Try to find any top-level JSON object
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if match:
         try:
@@ -258,13 +228,6 @@ def parse_json_from_text(text: str) -> Optional[dict]:
 
 
 def generate_qa_pairs(chunk: dict, model: str) -> List[dict]:
-    """Call the LLM to generate QA pairs for a single chunk.
-
-    Uses OpenRouter's structured output when possible, with a robust fallback
-    to manual JSON parsing for models that don't support response_format.
-
-    Returns a list of dicts ready for the eval dataset, with metadata attached.
-    """
     user_prompt = build_user_prompt(chunk)
     timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -275,7 +238,6 @@ def generate_qa_pairs(chunk: dict, model: str) -> List[dict]:
 
     parsed_data = None
 
-    # Strategy 1: Try structured output (works with many OpenRouter models)
     try:
         response = client.beta.chat.completions.parse(
             model=model,
@@ -287,9 +249,8 @@ def generate_qa_pairs(chunk: dict, model: str) -> List[dict]:
         if parsed_obj:
             parsed_data = parsed_obj.model_dump()
     except Exception as e:
-        logger.debug(f"Structured output failed (expected for some models): {e}")
+        logger.debug(f"Structured output failed (falling back): {e}")
 
-    # Strategy 2: Fallback to plain completion + manual JSON extraction
     if parsed_data is None:
         try:
             response = client.chat.completions.create(
@@ -311,15 +272,19 @@ def generate_qa_pairs(chunk: dict, model: str) -> List[dict]:
         )
         return []
 
-    # Attach provenance metadata to each generated pair
     results = []
     for item in parsed_data["items"]:
+        # Ensure max 3 links are stored
+        links = item.get("relevant_links", [])
+        safe_links = links[:3] if isinstance(links, list) else []
+        
         results.append({
             "question": item.get("question", ""),
-            "gold_answer": item.get("gold_answer", ""),
-            "gold_urls": item.get("gold_urls", [chunk.get("page_url", "")]),
-            "source_chunk_id": chunk.get("chunk_id", "unknown"),
+            "answer": item.get("answer", ""),
+            "difficulty": item.get("difficulty", "medium"),
+            "relevant_links": safe_links,
             "source_page": chunk.get("page_title", ""),
+            "source_chunk_id": chunk.get("chunk_id", "unknown"),
             "source_text": chunk.get("text", ""),
             "generator_model": model,
             "generated_at": timestamp,
@@ -332,9 +297,8 @@ def generate_qa_pairs(chunk: dict, model: str) -> List[dict]:
 # ---------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate a gold-standard eval dataset for Ore-acle RAG.",
+        description="Generate a gold-standard eval question set for Ore-acle Offline.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
     )
     parser.add_argument(
         "--num-chunks", type=int, default=30,
@@ -349,8 +313,8 @@ def main():
         help="Path to the processed chunks JSON file.",
     )
     parser.add_argument(
-        "--output", type=str, default="data/eval/eval_dataset.json",
-        help="Path to write the eval dataset JSON.",
+        "--output", type=str, default="data/eval/questionset.json",
+        help="Path to write the eval questionset JSON.",
     )
     parser.add_argument(
         "--append", action="store_true",
@@ -362,27 +326,22 @@ def main():
     )
     args = parser.parse_args()
 
-    # Validate input
     if not Path(args.chunks_path).exists():
         logger.error(f"Chunks file not found: {args.chunks_path}")
         return
 
-    # Ensure output directory exists
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
 
-    # Load and sample
     all_chunks = load_and_filter_chunks(args.chunks_path)
     sampled = sample_chunks(all_chunks, args.num_chunks, seed=args.seed)
     logger.info(f"Sampled {len(sampled)} chunks for QA generation.")
 
-    # Load existing dataset if appending
     dataset: list = []
     if args.append and Path(args.output).exists():
         with open(args.output, "r", encoding="utf-8") as f:
             dataset = json.load(f)
         logger.info(f"Loaded existing dataset with {len(dataset)} items (append mode).")
 
-    # Generate QA pairs
     new_count = 0
     for i, chunk in enumerate(sampled):
         page = chunk.get("page_title", "???")
@@ -394,22 +353,19 @@ def main():
             new_count += len(pairs)
             logger.info(f"  -> {len(pairs)} pair(s) generated.")
 
-            # Save incrementally after each successful generation so partial
-            # runs are never lost (important for long runs with API rate limits).
             with open(args.output, "w", encoding="utf-8") as f:
                 json.dump(dataset, f, indent=2, ensure_ascii=False)
         else:
             logger.warning(f"  -> No pairs generated (skipped).")
 
-    # Final summary
     logger.info("=" * 60)
     logger.info(f"Dataset generation complete.")
-    logger.info(f"  New pairs generated : {new_count}")
-    logger.info(f"  Total dataset size  : {len(dataset)}")
-    logger.info(f"  Output file         : {args.output}")
-    logger.info(f"  Model used          : {args.model}")
+    logger.info(f"  New questions generated : {new_count}")
+    logger.info(f"  Total questionset size  : {len(dataset)}")
+    logger.info(f"  Output file             : {args.output}")
     logger.info("=" * 60)
 
 
 if __name__ == "__main__":
     main()
+
