@@ -2,25 +2,21 @@
 Evaluation Question Set Generator for Ore-acle Offline
 ======================================================
 
-Generates a gold-standard evaluation question set by sampling chunks from the
-processed Minecraft Wiki corpus and using an LLM to produce grounded
-questions, answers, difficulty levels, and relevant links.
+Generates a gold-standard evaluation question set by targeting the most important
+(high PageRank) whole pages from the Minecraft Wiki corpus and using an LLM to 
+produce grounded questions, answers, difficulty levels, and relevant links.
 
 Design Rationale
 ----------------
-Traditional RAG evaluation requires a test set of (question, gold_answer,
-gold_source_urls) triples. Manually authoring these is expensive and doesn't
-scale. Instead, we exploit the fact that we *already have* the source text:
+Traditional RAG evaluation requires a test set of triples. To avoid "chunk leakage"
+and evaluate true long-context retrieval logic, we feed the LLM the ENTIRE text 
+of a target wiki page (e.g. "Creeper", "Crafting") determined by a mathematically
+robust PageRank-based popularity heuristic.
 
-1. **Sample** a random page/chunk from the corpus.
-2. **Generate** 1-2 natural questions whose answers are fully contained in
-   that chunk's text, determining their difficulty (easy/medium/hard).
-3. **Extract** up to 3 most relevant inter-wiki links *from that chunk's own
-   related_pages field* to serve as secondary gold retrieval targets.
-
-This gives us a scalable, automatically-generated ground truth where:
-- **Retrieval gold** = the source page + up to 3 relevant links
-- **Answer gold**    = the LLM-generated reference answer (grounded in text)
+1. **Score** all wiki pages using PageRank + Content Density modifiers.
+2. **Select** the top N most important pages.
+3. **Generate** 3-5 natural questions whose answers are contained in the text.
+4. **Extract** relevant inter-wiki links based on valid outgoing links.
 
 The dataset is saved incrementally to `data/eval/questionset.json` so
 partial runs are resumable.
@@ -34,46 +30,24 @@ Output Schema (per item)
   "difficulty":      "easy",
   "relevant_links":  ["https://minecraft.wiki/w/Diamond", "https://minecraft.wiki/w/Ore"],
   "source_page":     "Diamond",
-  "source_chunk_id": "1aa5db556551eba9",
-  "source_text":     "<verbatim chunk text used to generate this pair>",
-  "generator_model": "google/gemini-2.5-flash-preview:thinking",
+  "generator_model": "google/gemini-3.1-flash-lite-preview",
   "generated_at":    "2026-03-25T14:30:00Z"
 }
 ```
-
-Usage
------
-```bash
-# Generate 50 QA pairs (samples 30 chunks, ~1-2 pairs each)
-python scripts/eval/generate_questionset.py --num-chunks 30
-
-# Append more pairs to an existing dataset
-python scripts/eval/generate_questionset.py --num-chunks 20 --append
-
-# Use a different model
-python scripts/eval/generate_questionset.py --model google/gemini-2.5-pro-preview
-```
-
-Environment Variables
----------------------
-- OPENROUTER_API_KEY : Required. Your OpenRouter API key.
-
-Dependencies
-------------
-- openai >= 1.0  (OpenAI SDK, pointed at OpenRouter base URL)
-- pydantic >= 2.0
-- python-dotenv
 """
 
 import argparse
+import base64
 import json
 import logging
+import math
 import os
 import random
 import re
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -105,10 +79,7 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
 )
 
-DEFAULT_MODEL = "google/gemini-2.5-flash-preview:thinking"
-
-MIN_CHUNK_WORDS = 50
-NOISE_MARKERS = ["NewPP limit report", "Parsed by mediawiki"]
+DEFAULT_MODEL = "google/gemini-3.1-flash-lite-preview"
 
 
 # ---------------------------------------------------------------------------
@@ -121,44 +92,93 @@ class QAPair(BaseModel):
     question: str
     answer: str
     relevant_links: List[str]
+    relevant_images: List[str] = []
     difficulty: str
 
 
 class GeneratedEval(BaseModel):
-    """Wrapper for the LLM's structured response containing 1-2 QA pairs."""
+    """Wrapper for the LLM's structured response containing QA pairs."""
     model_config = ConfigDict(strict=False)
 
     items: List[QAPair]
 
 
 # ---------------------------------------------------------------------------
-# Chunk sampling
+# PageRank & Scoring Logic
 # ---------------------------------------------------------------------------
-def load_and_filter_chunks(file_path: str) -> list:
-    logger.info(f"Loading chunks from {file_path} ...")
-    with open(file_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    logger.info(f"Loaded {len(data):,} total chunks.")
+def compute_pagerank(
+    interlinks: Dict[str, List[str]], 
+    damping_factor: float = 0.85, 
+    max_iterations: int = 50, 
+    tol: float = 1e-6
+) -> Dict[str, float]:
+    nodes = set(interlinks.keys())
+    for targets in interlinks.values():
+        nodes.update(targets)
+    
+    N = len(nodes)
+    if N == 0:
+        return {}
 
-    valid = []
-    for chunk in data:
-        if chunk.get("page_type") == "disambiguation":
-            continue
-        text = chunk.get("text", "")
-        if len(text.split()) < MIN_CHUNK_WORDS:
-            continue
-        if any(marker in text for marker in NOISE_MARKERS):
-            continue
-        valid.append(chunk)
+    pr = {node: 1.0 / N for node in nodes}
+    out_degree = {node: len(targets) for node, targets in interlinks.items()}
+    
+    incoming = defaultdict(list)
+    for src, targets in interlinks.items():
+        for target in targets:
+            incoming[target].append(src)
+            
+    dangling_nodes = [n for n in nodes if out_degree.get(n, 0) == 0]
 
-    logger.info(f"Filtered to {len(valid):,} evaluation-eligible chunks.")
-    return valid
+    for i in range(max_iterations):
+        new_pr = {}
+        dangling_sum = sum(pr[n] for n in dangling_nodes)
+        base_pr = (1.0 - damping_factor) / N + damping_factor * (dangling_sum / N)
+        
+        diff = 0.0
+        for node in nodes:
+            sum_in = sum(pr[inc] / out_degree[inc] for inc in incoming[node])
+            new_pr[node] = base_pr + damping_factor * sum_in
+            diff += abs(new_pr[node] - pr[node])
+            
+        pr = new_pr
+        if diff < tol:
+            logger.info(f"PageRank converged at iteration {i+1}")
+            break
+            
+    return pr
 
 
-def sample_chunks(chunks: list, count: int, seed: Optional[int] = None) -> list:
-    if seed is not None:
-        random.seed(seed)
-    return random.sample(chunks, min(count, len(chunks)))
+def select_top_pages(metadata: List[dict], interlinks: Dict[str, List[str]], top_k: int) -> List[dict]:
+    logger.info("Computing PageRank scores...")
+    pr_scores = compute_pagerank(interlinks)
+    
+    word_counts = {p['title']: p.get('word_count', 0) for p in metadata}
+    scored_pages = []
+    
+    for page in metadata:
+        title = page['title']
+        pr = pr_scores.get(title, 0.0)
+        wc = word_counts.get(title, 0)
+        
+        # 1. Log-scale
+        pr_factor = math.log10((pr * 1000000) + 1)
+        wc_factor = math.log10(max(wc, 1))
+        
+        # 2. Content Density Mutliplier
+        has_infobox = 1 if page.get('infobox') else 0
+        img_count = len(page.get('images', []))
+        content_multiplier = 1.0 + (has_infobox * 0.5) + (min(img_count, 50) * 0.01)
+        
+        # 3. Penalize Meta-Pages
+        is_meta = bool(re.search(r'(?i)edition\b|\b1\.\d+|\b\d{2}w\d+[a-z]?|launcher|mojang|protocol|tracker', title))
+        penalty = 0.3 if is_meta else 1.0
+        
+        final_score = pr_factor * wc_factor * content_multiplier * penalty
+        scored_pages.append((final_score, page))
+        
+    scored_pages.sort(key=lambda x: x[0], reverse=True)
+    return [p[1] for p in scored_pages[:top_k]]
 
 
 # ---------------------------------------------------------------------------
@@ -167,40 +187,60 @@ def sample_chunks(chunks: list, count: int, seed: Optional[int] = None) -> list:
 SYSTEM_PROMPT = """\
 You are an expert evaluation dataset creator for a Minecraft Wiki RAG system.
 
-Your job: Given a chunk of wiki text, generate 1-2 high-quality testing questions
-that are **strictly grounded** in the provided text.
+Your job: Given the ENTIRE text of a highly popular Minecraft Wiki page, generate 3-5 high-quality testing questions that are **strictly grounded** in the provided text.
 
 Rules:
 - Questions must sound like real user queries (natural language, not robotic).
-- Answers must be fully supported by the chunk text  do NOT add outside knowledge.
-- Determine the 'difficulty' of the question: 'easy' (direct fact extraction), 'medium' (requires combining 2+ facts), or 'hard' (complex reasoning/edge cases).
-- Identify up to 3 most relevant links (from the provided related pages list or derived from the text) that someone answering this question would want to read.
+- Answers must be fully supported by the page text  do NOT add outside knowledge.
+- Determine the 'difficulty' of the question: 'easy' (direct fact extraction), 'medium' (requires combining 2+ facts across the page), or 'hard' (complex reasoning/edge cases).
+- Look at the provided "Outgoing Links" array. For each question, identify up to 3 links from that array that are highly relevant to the specific question topic to serve as gold-standard retrieval targets. Return them as full URLs (e.g. "https://minecraft.wiki/w/Diamond").
+- If relevant images are provided in the user prompt array visually, you may identify their "image_hash" (up to 2) that are highly relevant to the question. Return them in the "relevant_images" list. If no image is relevant, leave it empty.
 - Focus on: game mechanics, crafting recipes, mob behavior, block properties, etc.
-- Skip if the chunk is too vague or lacks concrete facts."""
+- Do not ask meta-questions about the wiki itself."""
 
 
-def build_user_prompt(chunk: dict) -> str:
-    text = chunk.get("text", "")
-    page_title = chunk.get("page_title", "")
-    page_url = chunk.get("page_url", "")
-    related = chunk.get("related_pages", [])
+def assemble_page_text(page: dict) -> str:
+    sections = page.get("sections", [])
+    if not isinstance(sections, list):
+        return ""
+        
+    full_text = []
+    for sec in sections:
+        level = sec.get("level", 2)
+        heading = sec.get("heading", "")
+        text = sec.get("text", "")
+        
+        if heading:
+            full_text.append(f"{'#' * level} {heading}\n")
+        if text:
+            full_text.append(f"{text}\n")
+            
+    return "\n".join(full_text)
 
-    # Provide related page URLs so the model can reference them
-    related_urls = [
+
+def build_user_prompt(page: dict, interlinks: Dict[str, List[str]], images_to_show: List[dict]) -> str:
+    page_title = page.get("title", "")
+    page_url = page.get("url", f"https://minecraft.wiki/w/{page_title.replace(' ', '_')}")
+    full_text = assemble_page_text(page)
+    
+    outgoing = interlinks.get(page_title, [])
+    # Cap outgoing links to 50 so we don't blow up the prompt entirely
+    ranked_outgoing = [
         f"https://minecraft.wiki/w/{name.replace(' ', '_')}"
-        for name in related[:10]  # Cap at 10 to avoid prompt bloat
+        for name in outgoing[:50]
     ]
 
     return f"""\
 Page: {page_title}
 Primary URL: {page_url}
-Related pages context: {json.dumps(related_urls)}
+Outgoing Links context: {json.dumps(ranked_outgoing)}
+Images context (hashes): {json.dumps([img['image_hash'] for img in images_to_show])}
 
---- CHUNK TEXT START ---
-{text}
---- CHUNK TEXT END ---
+--- FULL WIKI PAGE TEXT START ---
+{full_text}
+--- FULL WIKI PAGE TEXT END ---
 
-Generate 1-2 QA pairs as JSON matching this schema:
+Generate 3-5 QA pairs as JSON matching this schema:
 {{"items": [{{"question": "...", "answer": "...", "relevant_links": ["url1", "url2"], "difficulty": "easy|medium|hard"}}]}}"""
 
 
@@ -227,14 +267,33 @@ def parse_json_from_text(text: str) -> Optional[dict]:
     return None
 
 
-def generate_qa_pairs(chunk: dict, model: str) -> List[dict]:
-    user_prompt = build_user_prompt(chunk)
+def generate_qa_pairs(page: dict, interlinks: Dict[str, List[str]], image_metadata: Dict[str, list], model: str) -> List[dict]:
+    # Find matching images
+    page_filename = Path(page.get("file_path", "")).name
+    images_for_page = image_metadata.get(page_filename, [])[:10]  # Cap at 10 to avoid payload explosion
+    
+    user_prompt = build_user_prompt(page, interlinks, images_for_page)
     timestamp = datetime.now(timezone.utc).isoformat()
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt},
     ]
+    
+    user_content = [{"type": "text", "text": user_prompt}]
+    
+    # Add images
+    for img in images_for_page:
+        try:
+            with open(img["file_path"], "rb") as image_file:
+                b64_img = base64.b64encode(image_file.read()).decode("utf-8")
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/webp;base64,{b64_img}"}
+                })
+        except Exception as e:
+            logger.warning(f"Could not load image {img['file_path']}: {e}")
+    
+    messages.append({"role": "user", "content": user_content})
 
     parsed_data = None
 
@@ -262,19 +321,18 @@ def generate_qa_pairs(chunk: dict, model: str) -> List[dict]:
             parsed_data = parse_json_from_text(raw_text)
         except Exception as e:
             logger.error(
-                f"LLM call failed for chunk {chunk.get('chunk_id')}: {e}"
+                f"LLM call failed for page {page.get('title')}: {e}"
             )
             return []
 
     if not parsed_data or "items" not in parsed_data:
         logger.warning(
-            f"No valid QA pairs returned for chunk {chunk.get('chunk_id')}."
+            f"No valid QA pairs returned for page {page.get('title')}."
         )
         return []
 
     results = []
     for item in parsed_data["items"]:
-        # Ensure max 3 links are stored
         links = item.get("relevant_links", [])
         safe_links = links[:3] if isinstance(links, list) else []
         
@@ -283,9 +341,8 @@ def generate_qa_pairs(chunk: dict, model: str) -> List[dict]:
             "answer": item.get("answer", ""),
             "difficulty": item.get("difficulty", "medium"),
             "relevant_links": safe_links,
-            "source_page": chunk.get("page_title", ""),
-            "source_chunk_id": chunk.get("chunk_id", "unknown"),
-            "source_text": chunk.get("text", ""),
+            "relevant_images": item.get("relevant_images", []),
+            "source_page": page.get("title", ""),
             "generator_model": model,
             "generated_at": timestamp,
         })
@@ -301,53 +358,68 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--num-chunks", type=int, default=30,
-        help="Number of chunks to sample and generate QA pairs from (default: 30).",
+        "--num-pages", type=int, default=10,
+        help="Number of top pages to evaluate and generate QA pairs for (default: 10).",
     )
     parser.add_argument(
         "--model", type=str, default=DEFAULT_MODEL,
         help=f"OpenRouter model ID for generation (default: {DEFAULT_MODEL}).",
     )
     parser.add_argument(
-        "--chunks-path", type=str, default="data/processed/chunks.json",
-        help="Path to the processed chunks JSON file.",
-    )
-    parser.add_argument(
         "--output", type=str, default="data/eval/questionset.json",
         help="Path to write the eval questionset JSON.",
     )
-    parser.add_argument(
-        "--append", action="store_true",
-        help="Append to an existing dataset file instead of overwriting.",
-    )
-    parser.add_argument(
-        "--seed", type=int, default=None,
-        help="Random seed for reproducible sampling.",
-    )
     args = parser.parse_args()
 
-    if not Path(args.chunks_path).exists():
-        logger.error(f"Chunks file not found: {args.chunks_path}")
+    # Load Data
+    logger.info("Loading metadata & interlinks...")
+    try:
+        with open('data/processed/metadata.json', 'r', encoding='utf-8') as f:
+            metadata = json.load(f)["pages"]
+            
+        with open('data/processed/interlinks.json', 'r', encoding='utf-8') as f:
+            interlinks = json.load(f)["graph"]
+            
+        with open('data/processed/image_metadata.json', 'r', encoding='utf-8') as f:
+            raw_image_data = json.load(f)["images"]
+            
+        image_metadata = defaultdict(list)
+        for img in raw_image_data:
+            for sp in img.get("source_pages", []):
+                image_metadata[sp].append(img)
+    except Exception as e:
+        logger.error(f"Failed loading data: {e}")
         return
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
 
-    all_chunks = load_and_filter_chunks(args.chunks_path)
-    sampled = sample_chunks(all_chunks, args.num_chunks, seed=args.seed)
-    logger.info(f"Sampled {len(sampled)} chunks for QA generation.")
+    # Get the highest quality pages
+    top_pages = select_top_pages(metadata, interlinks, args.num_pages)
+    logger.info(f"Selected {len(top_pages)} top priority pages for generation.")
 
     dataset: list = []
-    if args.append and Path(args.output).exists():
-        with open(args.output, "r", encoding="utf-8") as f:
-            dataset = json.load(f)
-        logger.info(f"Loaded existing dataset with {len(dataset)} items (append mode).")
+    if Path(args.output).exists():
+        try:
+            with open(args.output, "r", encoding="utf-8") as f:
+                dataset = json.load(f)
+            logger.info(f"Loaded existing dataset with {len(dataset)} items (will append).")
+        except json.JSONDecodeError:
+            logger.warning("Existing dataset is invalid JSON. Starting fresh.")
+
+    # Only process pages we haven't already processed in the existing dataset
+    processed_titles = {item.get("source_page") for item in dataset}
 
     new_count = 0
-    for i, chunk in enumerate(sampled):
-        page = chunk.get("page_title", "???")
-        logger.info(f"[{i+1}/{len(sampled)}] Generating QA for: {page}")
+    for i, page in enumerate(top_pages):
+        page_title = page.get("title", '???')
+        
+        if page_title in processed_titles:
+            logger.info(f"[{i+1}/{len(top_pages)}] Skipping '{page_title}' (already in dataset).")
+            continue
+            
+        logger.info(f"[{i+1}/{len(top_pages)}] Generating QA for: {page_title} (Words: {page.get('word_count')})")
 
-        pairs = generate_qa_pairs(chunk, model=args.model)
+        pairs = generate_qa_pairs(page, interlinks, image_metadata, model=args.model)
         if pairs:
             dataset.extend(pairs)
             new_count += len(pairs)
@@ -356,7 +428,7 @@ def main():
             with open(args.output, "w", encoding="utf-8") as f:
                 json.dump(dataset, f, indent=2, ensure_ascii=False)
         else:
-            logger.warning(f"  -> No pairs generated (skipped).")
+            logger.warning(f"  -> No pairs generated for {page_title}.")
 
     logger.info("=" * 60)
     logger.info(f"Dataset generation complete.")
