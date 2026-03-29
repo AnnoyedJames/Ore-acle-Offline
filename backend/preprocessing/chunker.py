@@ -667,6 +667,31 @@ class Chunker:
         logger.info(f"Saved {len(output)} chunks to {self.config.output_file}")
         return output
 
+    def chunk_pages(
+        self,
+        pages: list[dict],
+        interlinks: dict[str, list[str]] | None = None,
+        page_types: dict[str, dict] | None = None,
+    ) -> list[dict]:
+        """Chunk a list of pages (satisfies ChunkerProtocol).
+
+        This is the protocol-compatible entry point. Unlike ``chunk_all``
+        it does NOT read files from disk — the caller supplies everything.
+        """
+        interlinks = interlinks or {}
+        page_types = page_types or {}
+
+        all_chunks: list[Chunk] = []
+        for page in pages:
+            title = page.get("title", "")
+            cls = page_types.get(title, {})
+            page_type = cls.get("page_type", "other")
+            categories = cls.get("semantic_categories", page.get("categories", []))
+            related = interlinks.get(title, [])
+            all_chunks.extend(self.chunk_page(page, page_type, categories, related))
+
+        return [asdict(c) for c in all_chunks]
+
 
 if __name__ == "__main__":
     chunker = Chunker()

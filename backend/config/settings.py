@@ -23,12 +23,20 @@ class Settings(BaseSettings):
 
     # --- Embedding ---
     embedding_model: str = Field(
-        default="nomic-ai/nomic-embed-text-v1.5",
+        default="intfloat/multilingual-e5-large",
         description="HuggingFace model ID for sentence-transformers",
     )
-    embedding_dim: int = Field(default=768, description="Embedding vector dimensions")
+    embedding_dim: int = Field(default=1024, description="Embedding vector dimensions")
     embedding_batch_size: int = Field(
-        default=64, description="Batch size for embedding generation"
+        default=128, description="Batch size for embedding generation"
+    )
+    embedding_task_prefix: str = Field(
+        default="passage: ",
+        description="Prefix prepended to passage texts before embedding",
+    )
+    embedding_query_prefix: str = Field(
+        default="query: ",
+        description="Prefix prepended to query texts before embedding",
     )
     embedding_device: str = Field(
         default="cuda",
@@ -46,6 +54,10 @@ class Settings(BaseSettings):
     )
 
     # --- Chunking ---
+    chunker_strategy: str = Field(
+        default="section_aware",
+        description="Chunking strategy: section_aware (default) or langchain",
+    )
     chunk_max_tokens: int = Field(
         default=512, description="Maximum tokens per chunk"
     )

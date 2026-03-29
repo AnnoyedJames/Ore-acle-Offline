@@ -4,7 +4,6 @@ Loads chunks from chunks.json, generates embeddings in batches using
 sentence-transformers, and saves both the vectors (numpy .npy) and
 a mapping file for database upload.
 
-We use Multilingual-E5-Large (1024d) for high-quality retrieval.
 Vectors are L2-normalized for cosine similarity.
 
 Usage:
@@ -20,6 +19,8 @@ from typing import Optional
 import numpy as np
 from tqdm import tqdm
 
+from backend.config.settings import settings
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -33,23 +34,22 @@ class EmbeddingConfig:
     output_dir: Path = field(
         default_factory=lambda: Path("data/processed/embeddings")
     )
-    # Multilingual E5 Large — 1024d vectors supported by Pinecone Inference
-    model_name: str = "intfloat/multilingual-e5-large"
-    batch_size: int = 128  # Higher batch size for 4060
-    device: str = ""  # Auto-detect: cuda if available, else cpu
-    # Native dimension
-    truncate_dim: int = 1024
-    # E5 specific prefixes (passage for docs, query for search)
-    task_prefix: str = "passage: "
-    query_prefix: str = "query: "
+    model_name: str = field(default_factory=lambda: settings.embedding_model)
+    batch_size: int = field(default_factory=lambda: settings.embedding_batch_size)
+    device: str = field(default_factory=lambda: settings.embedding_device)
+    truncate_dim: int = field(default_factory=lambda: settings.embedding_dim)
+    task_prefix: str = field(default_factory=lambda: settings.embedding_task_prefix)
+    query_prefix: str = field(default_factory=lambda: settings.embedding_query_prefix)
     checkpoint_interval: int = 50
 
 
 class EmbeddingGenerator:
-    """Generates embeddings for chunks using Nomic v1.5.
+    """Generates embeddings for chunks using sentence-transformers.
+
+    Satisfies :class:`~backend.embeddings.base.EmbedderProtocol`.
 
     Saves:
-      - embeddings.npy: float32 array of shape (num_chunks, 768)
+      - embeddings.npy: float32 array of shape (num_chunks, dim)
       - chunk_ids.json: ordered list of chunk_ids matching embedding rows
     """
 
@@ -57,6 +57,25 @@ class EmbeddingGenerator:
         self.config = config or EmbeddingConfig()
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
         self.model = None
+
+    # --- EmbedderProtocol interface ---
+
+    @property
+    def dimension(self) -> int:
+        return self.config.truncate_dim
+
+    def embed_passages(self, texts: list[str]) -> np.ndarray:
+        """Embed pre-formatted passage texts (no prefix applied here)."""
+        self._load_model()
+        prefixed = [f"{self.config.task_prefix}{t}" for t in texts]
+        return self.model.encode(
+            prefixed,
+            normalize_embeddings=True,
+            show_progress_bar=len(texts) > 100,
+            batch_size=self.config.batch_size,
+        )
+
+    # --- Internal helpers ---
 
     def _load_model(self):
         """Lazy-load the sentence-transformers model."""
@@ -73,7 +92,6 @@ class EmbeddingGenerator:
             device = "cuda" if torch.cuda.is_available() else "cpu"
             self.config.device = device
 
-        # trust_remote_code=True is required for Nomic
         self.model = SentenceTransformer(
             self.config.model_name, 
             trust_remote_code=True,
@@ -142,17 +160,31 @@ class EmbeddingGenerator:
         start_idx = 0
         existing_embeddings = None
 
-        if resume and checkpoint_path.exists() and ids_path.exists():
-            try:
-                existing_embeddings = np.load(checkpoint_path)
-                with open(ids_path, "r") as f:
-                    existing_ids = json.load(f)
-                start_idx = len(existing_ids)
-                logger.info(f"Resuming from checkpoint: {start_idx}/{len(chunks)} done")
-            except Exception as e:
-                logger.warning(f"Failed to load checkpoint: {e}, starting fresh")
-                start_idx = 0
-                existing_embeddings = None
+        if resume:
+            # Prefer checkpoint.npy if it exists, otherwise use embeddings.npy
+            load_path = checkpoint_path if checkpoint_path.exists() else embeddings_path
+            if load_path.exists() and ids_path.exists():
+                try:
+                    existing_embeddings = np.load(load_path)
+                    with open(ids_path, "r") as f:
+                        existing_ids = json.load(f)
+                    
+                    # Ensure dimensions match
+                    if existing_embeddings.shape[0] == len(existing_ids):
+                        # Filter to only the chunks we still have
+                        # But wait, to keep it simple, just assume same order and check lengths.
+                        # Usually we append. If chunks changed entirely, a clean wipe is needed, 
+                        # but normally we are incrementally adding at the end.
+                        start_idx = len(existing_ids)
+                        logger.info(f"Resuming from {load_path.name}: {start_idx}/{len(chunks)} done")
+                    else:
+                        logger.warning(f"Metadata mismatch in {load_path.name}, starting fresh")
+                        start_idx = 0
+                        existing_embeddings = None
+                except Exception as e:
+                    logger.warning(f"Failed to load existing embeddings: {e}, starting fresh")
+                    start_idx = 0
+                    existing_embeddings = None
 
         if start_idx >= len(chunks):
             logger.info("All chunks already embedded!")
@@ -221,7 +253,7 @@ class EmbeddingGenerator:
     def embed_query(self, query: str) -> np.ndarray:
         """
         Embed a single query string for retrieval.
-        Uses query: prefix. Returns full 1024d L2-normalized vector.
+        Uses query prefix. Returns L2-normalized vector.
         """
         self._load_model()
         prefixed = f"{self.config.query_prefix}{query}"

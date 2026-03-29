@@ -98,6 +98,19 @@ class MinecraftWikiScraper:
         self.scraped_urls: set = set()
         self.metadata: list[PageMetadata] = []
         
+        # Load existing progress if available
+        if self.config.metadata_file.exists():
+            try:
+                with open(self.config.metadata_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    for page_data in data.get("pages", []):
+                        metadata = PageMetadata(**page_data)
+                        self.metadata.append(metadata)
+                        self.scraped_urls.add(metadata.url)
+                logger.info(f"Loaded {len(self.scraped_urls)} previously scraped pages from metadata")
+            except Exception as e:
+                logger.warning(f"Failed to load existing metadata, starting fresh: {e}")
+        
         # Ensure output directories exist
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
         self.config.metadata_file.parent.mkdir(parents=True, exist_ok=True)

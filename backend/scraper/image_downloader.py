@@ -1,123 +1,135 @@
 """
-Minecraft Wiki Image Downloader
+Minecraft Wiki Image Downloader (v2)
 
-Parses local HTML files (scraped by wiki_scraper.py) to find and download images.
+Parses local HTML files to find and download content images.
+Saves directly as WebP using the wiki filename (human-readable, no hashing).
+
 Features:
-- Deduplication (content-addressed storage via MD5)
-- Filtering (skips small icons/UI elements)
-- Rate limiting
-- Metadata tracking
+- Wiki-filename storage (e.g. Water_JE16-a1.webp)
+- Direct WebP conversion on download (no PNG intermediate)
+- Dimension filtering (skip icons < 150px)
+- /thumb/ URL resolution to full-res originals
+- Incremental: skips images already on disk
+- Periodic metadata saves
 """
 
-import hashlib
 import json
 import logging
-import re
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 from typing import Optional, Set
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 from PIL import Image
-from io import BytesIO
 from tqdm import tqdm
 
-# Configure logging
+from backend.utils.image_utils import get_original_url, wiki_url_to_filename
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ImageConfig:      #Configuration for the image downloader
+class ImageConfig:
+    """Configuration for the image downloader."""
+
     base_url: str = "https://minecraft.wiki"
-    
-    # Input/Output
+
+    # Input / Output
     html_dir: Path = field(default_factory=lambda: Path("data/raw/html"))
     images_dir: Path = field(default_factory=lambda: Path("data/raw/images"))
-    metadata_file: Path = field(default_factory=lambda: Path("data/processed/image_metadata.json"))
-    
+    metadata_file: Path = field(
+        default_factory=lambda: Path("data/processed/image_metadata.json")
+    )
+
     # Download settings
     user_agent: str = "Ore-acle-Bot/1.0 (Educational Minecraft RAG project)"
-    requests_per_second: float = 5.0  # Images are CDN-cached, can fetch faster
+    requests_per_second: float = 5.0
     retry_delay: int = 5
     max_retries: int = 3
-    
+
+    # Image processing
+    webp_quality: int = 80
+    max_dimension: int = 1280  # Downscale longest side
+
     # Filters
-    min_width: int = 150   # Skip thumbnails (120x68) and small icons
-    min_height: int = 150  # Skip thumbnails (120x68) and small icons
-    skip_patterns: list = field(default_factory=lambda: [
-        "editor", "sprite", "icon", "placeholder", "button"
-    ])
+    min_width: int = 150
+    min_height: int = 150
+    skip_patterns: list = field(
+        default_factory=lambda: ["editor", "sprite", "icon", "placeholder", "button"]
+    )
 
-
-@dataclass
-class ImageMetadata:
-    """Metadata for a downloaded image."""
-    image_hash: str
-    original_url: str
-    file_path: str
-    file_size_bytes: int
-    width: int
-    height: int
-    format: str
-    scraped_at: str
-    source_pages: list[str]  # List of HTML files this image appeared in
+    # Persistence
+    save_interval: int = 25  # Save metadata every N HTML files
 
 
 class ImageDownloader:
-    """Downloader that parses local HTML and fetches referenced images."""
-    
+    """Downloads wiki images from local HTML, saves as WebP with wiki filenames."""
+
     def __init__(self, config: Optional[ImageConfig] = None):
         self.config = config or ImageConfig()
         self.session = self._create_session()
         self.last_request_time = 0.0
-        
-        # State tracking
-        self.image_metadata: dict[str, ImageMetadata] = {}  # hash -> metadata
-        self.url_to_hash: dict[str, str] = {}  # url -> hash
-        self.processed_urls: Set[str] = set()
-        self.processed_html_files: Set[str] = set()  # Track fully processed HTML files
-        self.source_pages_sets: dict[str, Set[str]] = {}  # hash -> set of source pages (O(1) lookup)
-        
-        # Ensure output directories exist
+
+        # State
+        self.filename_to_meta: dict[str, dict] = {}  # local_filename -> metadata
+        self.url_to_filename: dict[str, str] = {}  # original_url -> local_filename
+        self.processed_html: Set[str] = set()
+
+        # Ensure directories
         self.config.images_dir.mkdir(parents=True, exist_ok=True)
         self.config.metadata_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Load existing metadata if available
+
         self._load_metadata()
 
     def _create_session(self) -> requests.Session:
-        session = requests.Session()
-        session.headers.update({
-            "User-Agent": self.config.user_agent,
-        })
-        return session
+        s = requests.Session()
+        s.headers["User-Agent"] = self.config.user_agent
+        return s
+
+    # ------------------------------------------------------------------
+    # Metadata I/O
+    # ------------------------------------------------------------------
 
     def _load_metadata(self):
-        """Load existing metadata to support incremental runs."""
+        """Load existing metadata for incremental runs."""
         if self.config.metadata_file.exists():
             try:
                 with open(self.config.metadata_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    for item in data.get("images", []):
-                        meta = ImageMetadata(**item)
-                        self.image_metadata[meta.image_hash] = meta
-                        self.url_to_hash[meta.original_url] = meta.image_hash
-                        self.processed_urls.add(meta.original_url)
-                        # Convert source_pages list to set for O(1) lookup
-                        self.source_pages_sets[meta.image_hash] = set(meta.source_pages)
-                    # Load processed HTML files
-                    self.processed_html_files = set(data.get("processed_html_files", []))
-                logger.info(f"Loaded metadata for {len(self.image_metadata)} images, {len(self.processed_html_files)} processed HTML files")
+                for entry in data.get("images", []):
+                    fname = entry["local_filename"]
+                    self.filename_to_meta[fname] = entry
+                    self.url_to_filename[entry["original_url"]] = fname
+                self.processed_html = set(data.get("processed_html_files", []))
+                logger.info(
+                    f"Loaded metadata: {len(self.filename_to_meta)} images, "
+                    f"{len(self.processed_html)} processed HTML files."
+                )
             except Exception as e:
                 logger.warning(f"Failed to load metadata: {e}")
+
+    def save_metadata(self):
+        """Persist metadata to disk."""
+        data = {
+            "last_run": datetime.now(timezone.utc).isoformat(),
+            "processed_html_files": sorted(self.processed_html),
+            "images": list(self.filename_to_meta.values()),
+        }
+        with open(self.config.metadata_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+    # ------------------------------------------------------------------
+    # Download logic
+    # ------------------------------------------------------------------
 
     def _rate_limit(self):
         elapsed = time.time() - self.last_request_time
@@ -127,147 +139,99 @@ class ImageDownloader:
         self.last_request_time = time.time()
 
     def _should_skip_url(self, url: str) -> bool:
-        """Heuristic check to skip obvious junk URLs."""
-        lower_url = url.lower()
-        
-        # Check explicit patterns
-        for pattern in self.config.skip_patterns:
-            if pattern in lower_url:
-                return True
-        
-        # Check likely non-content extensions
-        if lower_url.endswith(('.svg', '.gif')): # Optional: skip animations/vectors if problematic
-            pass 
-            
-        return False
-
-    def _convert_to_original_url(self, url: str) -> str:
-        """
-        Converts a MediaWiki thumbnail URL to the original file URL.
-        Example: 
-        Input:  .../images/thumb/a/b/Name.png/300px-Name.png
-        Output: .../images/a/b/Name.png
-        """
-        # Regex to capture the part between /thumb/ and the last slash (which is before the width-px part)
-        # Matches: .../images/thumb/(part_to_keep)/resolution-filename
-        match = re.search(r'/thumb/(.+)/[^/]+$', url)
-        if match:
-            # Reconstruct URL: remove /thumb/ and the trailing resolution part
-            base_part = url.split('/thumb/')[0]
-            clean_path = match.group(1)
-            return f"{base_part}/{clean_path}"
-        return url
+        lower = url.lower()
+        return any(p in lower for p in self.config.skip_patterns)
 
     def download_image(self, url: str, source_page: str) -> Optional[str]:
-        """Download image, deduplicate, and save. Returns image hash."""
+        """
+        Download a single image, convert to WebP, save with wiki filename.
+
+        Returns the local filename on success, None on skip/failure.
+        """
         url = urljoin(self.config.base_url, url)
-        
-        # Try to get the original high-res version
-        url = self._convert_to_original_url(url)
-        
-        # If we've seen this URL, just link the source page
-        if url in self.processed_urls:
-            img_hash = self.url_to_hash.get(url)
-            if img_hash and img_hash in self.image_metadata:
-                if source_page not in self.source_pages_sets.get(img_hash, set()):
-                    self.source_pages_sets.setdefault(img_hash, set()).add(source_page)
-                logger.debug(f"Cache hit (URL): {url} from {source_page}")
-                return img_hash
+        url = get_original_url(url)
+
+        # Determine local filename
+        local_filename = wiki_url_to_filename(url)
+        if not local_filename:
             return None
+
+        # Already have this URL mapped? Just update source pages.
+        if url in self.url_to_filename:
+            existing = self.filename_to_meta.get(self.url_to_filename[url])
+            if existing and source_page not in existing.get("source_pages", []):
+                existing.setdefault("source_pages", []).append(source_page)
+            return self.url_to_filename[url]
+
+        # File already on disk from a previous run? Register and skip download.
+        dest = self.config.images_dir / local_filename
+        if dest.exists() and local_filename in self.filename_to_meta:
+            self.url_to_filename[url] = local_filename
+            meta = self.filename_to_meta[local_filename]
+            if source_page not in meta.get("source_pages", []):
+                meta.setdefault("source_pages", []).append(source_page)
+            return local_filename
 
         if self._should_skip_url(url):
-            logger.debug(f"Skipped URL (pattern match): {url}")
             return None
 
-        # Fetch image
+        # Fetch
         for attempt in range(self.config.max_retries):
             self._rate_limit()
             try:
-                response = self.session.get(url, timeout=15)
-                if response.status_code != 200:
+                resp = self.session.get(url, timeout=15)
+                if resp.status_code != 200:
                     return None
-                
-                content = response.content
                 break
             except Exception as e:
                 if attempt == self.config.max_retries - 1:
                     logger.error(f"Failed to download {url}: {e}")
                     return None
                 time.sleep(self.config.retry_delay)
-        
-        # Validate and Filter with Pillow
+
+        # Validate dimensions
         try:
-            img = Image.open(BytesIO(content))
-            
-            # Dimension filter
+            img = Image.open(BytesIO(resp.content))
             if img.width < self.config.min_width or img.height < self.config.min_height:
-                logger.debug(f"Skipped (too small {img.width}x{img.height}): {url}")
                 return None
-            
-            # Format normalization
-            ext = ".png" # Save everything as PNG or keep original? 
-            # keep original extension unless it's weird, but convert to RGB if needed
-            
         except Exception:
-            # Not a valid image
             return None
 
-        # Calculate Hash
-        img_hash = hashlib.md5(content).hexdigest()
-        
-        # Check if we have this CONTENT already (even if URL distinct)
-        if img_hash in self.image_metadata:
-            # Just add the source using set for O(1) lookup
-            if source_page not in self.source_pages_sets.get(img_hash, set()):
-                self.source_pages_sets.setdefault(img_hash, set()).add(source_page)
-            # Link this new URL to the old hash
-            self.url_to_hash[url] = img_hash
-            self.processed_urls.add(url)
-            logger.debug(f"Cache hit (content hash {img_hash[:8]}): {url} from {source_page}")
-            return img_hash
-
-        # Save new image
-        filename = f"{img_hash}.png"
-        file_path = self.config.images_dir / filename
-        
+        # Downscale if needed & save as WebP
         try:
-            # Convert to RGB if necessary (e.g. for JPEG/PNG consistency)
-            if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
-                pass # Keep transparency
-            else:
-                 if img.mode != 'RGB':
-                    img = img.convert('RGB')
-            
-            # Actually save as valid PNG (fixing previous bug where raw bytes were written)
-            img.save(file_path, "PNG", optimize=True)
-            
-            # Get actual file size of the converted PNG
-            final_size = file_path.stat().st_size
-                
-            # Update metadata
-            meta = ImageMetadata(
-                image_hash=img_hash,
-                original_url=url,
-                file_path=str(file_path),
-                file_size_bytes=final_size,
-                width=img.width,
-                height=img.height,
-                format="PNG",
-                scraped_at=datetime.now(timezone.utc).isoformat(),
-                source_pages=[source_page]  # Will be synced from set on save
+            img.thumbnail(
+                (self.config.max_dimension, self.config.max_dimension),
+                Image.LANCZOS,
             )
-            
-            self.image_metadata[img_hash] = meta
-            self.source_pages_sets[img_hash] = {source_page}  # Use set for O(1) lookup
-            self.url_to_hash[url] = img_hash
-            self.processed_urls.add(url)
-            
-            logger.info(f"Downloaded: {filename} ({img.width}x{img.height}) from {url}")
-            return img_hash
-            
+            img.save(dest, format="WEBP", quality=self.config.webp_quality)
+
+            w, h = img.size
+            file_size = dest.stat().st_size
+
+            meta = {
+                "local_filename": local_filename,
+                "original_url": url,
+                "file_path": str(dest),
+                "file_size_bytes": file_size,
+                "width": w,
+                "height": h,
+                "format": "WEBP",
+                "scraped_at": datetime.now(timezone.utc).isoformat(),
+                "source_pages": [source_page],
+            }
+            self.filename_to_meta[local_filename] = meta
+            self.url_to_filename[url] = local_filename
+
+            logger.debug(f"Saved: {local_filename} ({w}x{h}) from {url}")
+            return local_filename
+
         except Exception as e:
-            logger.error(f"Error saving image {img_hash}: {e}")
+            logger.error(f"Error saving {local_filename}: {e}")
             return None
+
+    # ------------------------------------------------------------------
+    # Batch HTML processing
+    # ------------------------------------------------------------------
 
     def process_html_files(self, limit: Optional[int] = None):
         """Iterate through local HTML files and download content images."""
@@ -275,97 +239,72 @@ class ImageDownloader:
             logger.error(f"HTML directory not found: {self.config.html_dir}")
             return
 
-        html_files = list(self.config.html_dir.glob("*.html"))
-        logger.info(f"Found {len(html_files)} HTML files to process")
-        
-        count = 0
-        skipped = 0
-        
-        pbar = tqdm(html_files, desc="Processing HTML", unit="file")
-        
-        for file_path in pbar:
-            if limit and count >= limit:
-                break
-            
-            # Skip already-processed HTML files
-            if file_path.name in self.processed_html_files:
-                skipped += 1
-                continue
-                
-            pbar.set_description(f"Processing {file_path.name[:20]}...")
+        html_files = sorted(self.config.html_dir.glob("*.html"))
+        logger.info(f"Found {len(html_files)} HTML files total.")
 
+        to_process = [f for f in html_files if f.name not in self.processed_html]
+        logger.info(
+            f"{len(to_process)} remaining ({len(self.processed_html)} already done)."
+        )
+
+        if limit:
+            to_process = to_process[:limit]
+
+        pbar = tqdm(to_process, desc="Downloading images", unit="html")
+        files_since_save = 0
+        downloaded = 0
+
+        for html_path in pbar:
+            pbar.set_postfix(imgs=len(self.filename_to_meta), dl=downloaded)
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
+                with open(html_path, "r", encoding="utf-8") as f:
                     soup = BeautifulSoup(f, "html.parser")
-                
-                # Broad selector for content images
-                # 1. Standard thumbnails in articles
-                # 2. Infobox images
-                # 3. Galleries
-                # Standard wiki content is in .mw-parser-output
+
                 content = soup.find("div", class_="mw-parser-output")
                 if not content:
-                    logger.debug(f"No mw-parser-output in {file_path.name}")
-                    count += 1
+                    self.processed_html.add(html_path.name)
                     continue
 
-                images = content.find_all("img")
-                logger.debug(f"[{count+1}/{len(html_files)}] {file_path.name}: found {len(images)} images")
-                
-                page_name = file_path.name
-                
-                for img_tag in images:
+                for img_tag in content.find_all("img"):
                     src = img_tag.get("src")
                     if not src:
                         continue
-                        
-                    # Wiki typically uses local paths /images/...
                     if src.startswith("//"):
                         src = "https:" + src
-                    
-                    self.download_image(src, page_name)
-                
-                # Mark this HTML file as fully processed
-                self.processed_html_files.add(file_path.name)
-                count += 1
-                if count % 10 == 0:
-                    self.save_metadata()
-                    
-            except Exception as e:
-                logger.error(f"Error processing {file_path}: {e}")
-        
-        if skipped > 0:
-            logger.info(f"Skipped {skipped} already-processed HTML files")
-        self.save_metadata()
 
-    def save_metadata(self):
-        """Persist metadata to disk."""
-        # Sync source_pages sets back to the metadata lists before saving
-        for img_hash, meta in self.image_metadata.items():
-            if img_hash in self.source_pages_sets:
-                meta.source_pages = list(self.source_pages_sets[img_hash])
-        
-        data = {
-            "last_run": datetime.now(timezone.utc).isoformat(),
-            "processed_html_files": list(self.processed_html_files),
-            "images": [asdict(meta) for meta in self.image_metadata.values()]
-        }
-        with open(self.config.metadata_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+                    result = self.download_image(src, html_path.name)
+                    if result:
+                        downloaded += 1
+
+                self.processed_html.add(html_path.name)
+                files_since_save += 1
+
+                if files_since_save >= self.config.save_interval:
+                    self.save_metadata()
+                    files_since_save = 0
+
+            except Exception as e:
+                logger.error(f"Error processing {html_path.name}: {e}")
+
+        self.save_metadata()
+        logger.info(
+            f"Done. {len(self.filename_to_meta)} unique images, "
+            f"{len(self.processed_html)} HTML files processed."
+        )
 
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Download images from scraped HTML")
     parser.add_argument("--limit", type=int, help="Max HTML files to process")
     parser.add_argument("--rate-limit", type=float, default=5.0)
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
-    
+
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
-    
+
     config = ImageConfig(requests_per_second=args.rate_limit)
     downloader = ImageDownloader(config)
     downloader.process_html_files(limit=args.limit)

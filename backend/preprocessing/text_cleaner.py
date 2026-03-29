@@ -18,6 +18,8 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
 
+from backend.utils.image_utils import wiki_url_to_filename
+
 from bs4 import BeautifulSoup, Tag, NavigableString
 from tqdm import tqdm
 
@@ -188,6 +190,7 @@ class TextCleaner:
             
             images.append({
                 "url": clean_url,
+                "local_filename": wiki_url_to_filename(clean_url) or "",
                 "alt_text": self._clean_text(alt_text),
                 "section": section,
                 "context_type": context_type,

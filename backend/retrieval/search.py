@@ -1,294 +1,126 @@
 """
-Hybrid Search — Reciprocal Rank Fusion over semantic + keyword results.
+Local Hybrid Search — Reciprocal Rank Fusion over ChromaDB + SQLite FTS5.
 
-Semantic search: queries Pinecone for nearest vectors with full metadata.
-Keyword search: queries Supabase tsvector for matching chunk IDs + ranks.
-For keyword-only results, hydrates metadata from Pinecone via fetch().
-Merges results using RRF (k=60).
-
-Architecture:
-  - Pinecone: vectors + full chunk metadata (text, images, etc.)
-  - Supabase: keyword search index only (tsvector, no text stored)
-  - Hydration: always from Pinecone (not Supabase)
+Drop-in replacement for the cloud-based search module. Uses the same
+SearchResult dataclass and RRF algorithm but queries local stores.
 
 Usage:
-    from retrieval.search import HybridSearch
-    search = HybridSearch()
+    from backend.retrieval.local_search import LocalHybridSearch
+    search = LocalHybridSearch()
     results = search.search("How do I find diamonds?")
 """
 
 import json
 import logging
-from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy as np
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+from backend.config.settings import settings
+from backend.database.local_stores import ChromaStore, SQLiteStore
+from backend.embeddings.generator import EmbeddingGenerator
+from backend.retrieval.search import SearchResult
+
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class SearchConfig:
-    """Configuration for hybrid search."""
-    # Supabase (keyword search index only)
-    supabase_url: str = ""
-    supabase_key: str = ""
-    # Pinecone (semantic search + metadata hydration)
-    pinecone_api_key: str = ""
-    pinecone_index_name: str = "ore-acle"
-    # Search params
-    semantic_candidates: int = 20
-    keyword_candidates: int = 20
-    top_k: int = 10
-    rrf_k: int = 60  # RRF constant
-    # Embedding model for query encoding
-    embedding_model: str = "intfloat/multilingual-e5-large"
-    embedding_device: str = "cuda"
-
-
-@dataclass
-class SearchResult:
-    """A single search result with RRF score."""
-    chunk_id: str
-    page_title: str
-    page_url: str
-    section_heading: str
-    section_level: int
-    text: str
-    token_count: int
-    chunk_type: str
-    page_type: str
-    infobox: Optional[dict]
-    images: list
-    rrf_score: float
-    # Source scores for debugging
-    semantic_score: Optional[float] = None
-    keyword_score: Optional[float] = None
 
 
 class HybridSearch:
     """
-    Hybrid search combining semantic (Pinecone) and keyword (Supabase tsvector)
+    Hybrid search combining semantic (ChromaDB) and keyword (SQLite FTS5)
     retrieval using Reciprocal Rank Fusion.
 
     RRF formula: score(d) = Σ 1/(k + rank_i(d))
-    where k=60 (default) and rank_i is the rank from each retrieval method.
-
-    Pinecone is the source of truth for chunk data.
-    Supabase provides keyword search but stores no text.
     """
 
-    def __init__(self, config: Optional[SearchConfig] = None):
-        self.config = config or SearchConfig()
-        self._supabase = None
-        self._pinecone_index = None
-        self.embedder = None
+    def __init__(
+        self,
+        chroma: Optional[ChromaStore] = None,
+        sqlite: Optional[SQLiteStore] = None,
+        embedder: Optional[EmbeddingGenerator] = None,
+    ):
+        self.chroma = chroma or ChromaStore()
+        self.sqlite = sqlite or SQLiteStore()
+        self._embedder = embedder
+        # Search parameters from settings
+        self.semantic_candidates = settings.retrieval_semantic_candidates
+        self.keyword_candidates = settings.retrieval_keyword_candidates
+        self.top_k = settings.retrieval_top_k
+        self.rrf_k = settings.rrf_k
 
-    def _init_supabase(self):
-        """Initialize Supabase client."""
-        if self._supabase is not None:
-            return
+    @property
+    def embedder(self) -> EmbeddingGenerator:
+        if self._embedder is None:
+            self._embedder = EmbeddingGenerator()
+        return self._embedder
 
-        from supabase import create_client
+    def _semantic_search(self, query: str) -> list[dict]:
+        """Embed query and search ChromaDB."""
+        query_vec = self.embedder.embed_query(query)
+        results = self.chroma.query(query_vec, n_results=self.semantic_candidates)
+        return results
 
-        url = self.config.supabase_url
-        key = self.config.supabase_key
-
-        if not url or not key:
-            from config.settings import settings
-            url = url or settings.supabase_url
-            key = key or settings.supabase_service_key
-
-        if not url or not key:
-            raise ValueError("Supabase credentials not configured")
-
-        self._supabase = create_client(url, key)
-
-    def _init_pinecone(self):
-        """Initialize Pinecone client."""
-        if self._pinecone_index is not None:
-            return
-
-        from pinecone import Pinecone
-
-        api_key = self.config.pinecone_api_key
-        if not api_key:
-            from config.settings import settings
-            api_key = settings.pinecone_api_key
-
-        if not api_key:
-            raise ValueError("Pinecone API key not configured")
-
-        pc = Pinecone(api_key=api_key)
-        self._pinecone_index = pc.Index(self.config.pinecone_index_name)
-
-    def _init_embedder(self):
-        """Lazy-load the embedding model for query encoding."""
-        if self.embedder is not None:
-            return
-
-        from embeddings.generator import EmbeddingGenerator, EmbeddingConfig
-
-        config = EmbeddingConfig(
-            model_name=self.config.embedding_model,
-            device=self.config.embedding_device,
-        )
-        self.embedder = EmbeddingGenerator(config)
-
-    def _embed_query(self, query: str) -> list[float]:
-        """Embed a query using Nomic v1.5 with search_query prefix."""
-        self._init_embedder()
-        embedding = self.embedder.embed_query(query)
-        return embedding.tolist()
-
-    def _parse_pinecone_metadata(self, metadata: dict) -> dict:
-        """Parse Pinecone metadata back into a chunk dict.
-
-        Complex fields (images, infobox) are stored as JSON strings
-        in Pinecone metadata and need to be deserialized.
-        """
-        images_json = metadata.get("images_json", "[]")
-        infobox_json = metadata.get("infobox_json", "")
-
-        return {
-            "page_title": metadata.get("page_title", ""),
-            "page_url": metadata.get("page_url", ""),
-            "section_heading": metadata.get("section_heading", ""),
-            "section_level": metadata.get("section_level", 2),
-            "text": metadata.get("text", ""),
-            "token_count": metadata.get("token_count", 0),
-            "chunk_type": metadata.get("chunk_type", "section"),
-            "page_type": metadata.get("page_type", "other"),
-            "images": json.loads(images_json) if images_json else [],
-            "infobox": json.loads(infobox_json) if infobox_json else None,
-        }
-
-    def _semantic_search(
-        self, query_embedding: list[float], filter_types: Optional[list[str]] = None
-    ) -> list[dict]:
-        """
-        Query Pinecone for nearest vectors with full metadata.
-
-        Returns list of chunk dicts with a 'similarity' field.
-        """
-        self._init_pinecone()
-
-        # Build Pinecone filter if page types specified
-        pc_filter = None
-        if filter_types:
-            pc_filter = {"page_type": {"$in": filter_types}}
-
-        # Query Pinecone with metadata included
-        results = self._pinecone_index.query(
-            vector=query_embedding,
-            top_k=self.config.semantic_candidates,
-            filter=pc_filter,
-            include_metadata=True,  # Full metadata from Pinecone
-        )
-
-        if not results.matches:
-            return []
-
-        enriched = []
-        for m in results.matches:
-            chunk = self._parse_pinecone_metadata(m.metadata or {})
-            chunk["id"] = m.id
-            chunk["similarity"] = m.score
-            enriched.append(chunk)
-
-        return enriched
-
-    def _keyword_search(
-        self, query: str, filter_types: Optional[list[str]] = None
-    ) -> list[dict]:
-        """Call the Supabase match_chunks_keyword RPC function.
-
-        Returns slim results: id, page_title, page_url, section_heading,
-        page_type, rank. No text — Supabase is index-only.
-        """
-        self._init_supabase()
-
-        params = {
-            "search_query": query,
-            "match_count": self.config.keyword_candidates,
-        }
-        if filter_types:
-            params["filter_types"] = filter_types
-
-        result = self._supabase.rpc("match_chunks_keyword", params).execute()
-        return result.data or []
-
-    def _hydrate_from_pinecone(self, ids: list[str]) -> dict[str, dict]:
-        """Fetch full metadata for specific chunk IDs from Pinecone.
-
-        Used to hydrate keyword-only results that aren't in the
-        semantic search results.
-        """
-        if not ids:
-            return {}
-
-        self._init_pinecone()
-        response = self._pinecone_index.fetch(ids=ids)
-
-        result = {}
-        for vid, vector in response.vectors.items():
-            chunk = self._parse_pinecone_metadata(vector.metadata or {})
-            chunk["id"] = vid
-            result[vid] = chunk
-
-        return result
+    def _keyword_search(self, query: str) -> list[dict]:
+        """Search SQLite FTS5 for matching chunks."""
+        return self.sqlite.search(query, limit=self.keyword_candidates)
 
     def _rrf_merge(
         self,
         semantic_results: list[dict],
         keyword_results: list[dict],
+        chunks_lookup: dict[str, dict],
     ) -> list[SearchResult]:
-        """
-        Merge semantic and keyword results using Reciprocal Rank Fusion.
-
-        RRF score for document d = Σ 1/(k + rank_i(d))
-        """
-        k = self.config.rrf_k
+        """Merge results using Reciprocal Rank Fusion."""
+        k = self.rrf_k
         scores: dict[str, float] = {}
-        chunks: dict[str, dict] = {}
         semantic_scores: dict[str, float] = {}
         keyword_scores: dict[str, float] = {}
 
-        # Score semantic results (these have full metadata)
+        # Score semantic results
         for rank, result in enumerate(semantic_results):
             cid = result["id"]
             scores[cid] = scores.get(cid, 0) + 1.0 / (k + rank + 1)
-            chunks[cid] = result
-            semantic_scores[cid] = result.get("similarity", 0)
+            semantic_scores[cid] = 1.0 - result.get("distance", 0)
 
-        # Score keyword results (slim — may lack text)
+        # Score keyword results
         for rank, result in enumerate(keyword_results):
-            cid = result["id"]
+            cid = result["chunk_id"]
             scores[cid] = scores.get(cid, 0) + 1.0 / (k + rank + 1)
-            if cid not in chunks:
-                chunks[cid] = result  # Keyword-only, will need hydration
-            keyword_scores[cid] = result.get("rank", 0)
-
-        # Hydrate keyword-only results from Pinecone
-        semantic_ids = {r["id"] for r in semantic_results}
-        keyword_only_ids = [cid for cid in scores if cid not in semantic_ids]
-        if keyword_only_ids:
-            hydrated = self._hydrate_from_pinecone(keyword_only_ids)
-            for cid, data in hydrated.items():
-                chunks[cid] = data
+            keyword_scores[cid] = abs(result.get("rank", 0))
 
         # Sort by RRF score descending
         sorted_ids = sorted(scores.keys(), key=lambda x: -scores[x])
-        top_ids = sorted_ids[: self.config.top_k]
+        top_ids = sorted_ids[: self.top_k]
 
         results = []
         for cid in top_ids:
-            c = chunks[cid]
-            # Skip if we couldn't hydrate (missing from Pinecone)
-            if "text" not in c:
-                logger.warning(f"Chunk {cid} has no text data, skipping")
+            # Prefer semantic result metadata (has full fields),
+            # fall back to chunks.json lookup
+            sem = next(
+                (r for r in semantic_results if r["id"] == cid), None
+            )
+            if sem and "text" in sem:
+                c = sem
+            elif cid in chunks_lookup:
+                c = chunks_lookup[cid]
+            else:
+                logger.warning(f"Chunk {cid} not found in any source, skipping")
                 continue
+
+            # Parse JSON strings if needed (from ChromaDB metadata)
+            images = c.get("images", [])
+            if isinstance(images, str):
+                try:
+                    images = json.loads(images)
+                except (json.JSONDecodeError, TypeError):
+                    images = []
+
+            infobox = c.get("infobox")
+            if isinstance(infobox, str):
+                try:
+                    infobox = json.loads(infobox)
+                except (json.JSONDecodeError, TypeError):
+                    infobox = None
+
             results.append(SearchResult(
                 chunk_id=cid,
                 page_title=c.get("page_title", ""),
@@ -299,8 +131,8 @@ class HybridSearch:
                 token_count=c.get("token_count", 0),
                 chunk_type=c.get("chunk_type", "section"),
                 page_type=c.get("page_type", "other"),
-                infobox=c.get("infobox"),
-                images=c.get("images", []),
+                infobox=infobox,
+                images=images,
                 rrf_score=scores[cid],
                 semantic_score=semantic_scores.get(cid),
                 keyword_score=keyword_scores.get(cid),
@@ -312,31 +144,39 @@ class HybridSearch:
         self,
         query: str,
         filter_types: Optional[list[str]] = None,
+        chunks_lookup: Optional[dict[str, dict]] = None,
     ) -> list[SearchResult]:
         """
-        Perform hybrid search: semantic (Pinecone) + keyword (Supabase) with RRF fusion.
+        Perform local hybrid search: ChromaDB (semantic) + SQLite FTS5 (keyword).
 
-        Args:
-            query: Natural language search query
-            filter_types: Optional list of page_types to filter by
+        Parameters
+        ----------
+        query : str
+            Natural language search query.
+        filter_types : list[str] | None
+            Optional page_type filter (not yet implemented for local).
+        chunks_lookup : dict | None
+            Optional {chunk_id: chunk_dict} for text hydration.
+            If not provided, relies on ChromaDB metadata.
 
-        Returns:
-            Top-k SearchResult objects sorted by RRF score
+        Returns
+        -------
+        list[SearchResult]
+            Top-k results sorted by RRF score.
         """
-        # 1. Embed query
-        query_embedding = self._embed_query(query)
-
-        # 2. Run both searches
-        semantic_results = self._semantic_search(query_embedding, filter_types)
-        keyword_results = self._keyword_search(query, filter_types)
+        semantic_results = self._semantic_search(query)
+        keyword_results = self._keyword_search(query)
 
         logger.info(
-            f"Query: '{query[:50]}...' → "
+            f"Query: '{query[:50]}' → "
             f"{len(semantic_results)} semantic, {len(keyword_results)} keyword"
         )
 
-        # 3. Merge with RRF
-        merged = self._rrf_merge(semantic_results, keyword_results)
+        merged = self._rrf_merge(
+            semantic_results,
+            keyword_results,
+            chunks_lookup or {},
+        )
 
         logger.info(f"RRF merged → {len(merged)} results")
         for i, r in enumerate(merged[:3]):

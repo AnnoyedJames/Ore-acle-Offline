@@ -4,21 +4,21 @@ import { join } from 'path';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ hash: string }> }
+  { params }: { params: Promise<{ filename: string }> }
 ) {
   try {
-    const { hash } = await params;
+    const { filename } = await params;
 
     // Sanitize hash to prevent directory traversal
-    if (!hash || !/^[a-f0-9]+\.webp$/i.test(hash)) {
+    if (!filename || filename.includes('..')) {
       return NextResponse.json(
-        { error: 'Invalid image hash' },
+        { error: 'Invalid image filename' },
         { status: 400 }
       );
     }
 
     // Since this is Ore-acle Offline, we serve directly from the local data dir
-    const imagePath = join(process.cwd(), '..', 'data', 'raw', 'images', hash);
+    const imagePath = join(process.cwd(), '..', 'data', 'raw', 'images', filename);
 
     // Read the image file
     const imageBuffer = await readFile(imagePath);

@@ -39,6 +39,18 @@ LLM Generation (OpenRouter/Local) → Response
 2. **SQLite (FTS5)**: Stores the full text index for keyword search (`bm25` equivalent).
 3. **Local Filesystem**: Stores the actual text chunks (`chunks.json`) and images.
 
+
+## Data Schema Quirks & Joins (CRITICAL)
+
+When working with data processing scripts or evaluations, be aware of the following dataset idiosyncrasies to prevent 'hallucinating' missing data or failing array intersections:
+
+1. **metadata.json**: Tracks the original parsed HTML pages. The images array native to a page here includes *every single URL requested* (including 16x16 UI icons, tiny sprites, etc.).
+2. **image_metadata.json**: Tracks the images that were *actually downloaded*. The scraper actively strips out small/UI images. Its files are saved locally as data/raw/images/[image_hash].webp.
+3. **Array Match Limitations**: Do NOT rely blindly on the source_pages array in image_metadata.json to find all images for a current page. That array is truncated (cap of 18) by the scraping script. 
+4. **URL Normalization (The Join Key)**: To correctly intersect a page's requested images with the actual downloaded dataset, you MUST match them via URL. However, the URLs contain encoding inconsistencies and tracking params. You must normalize both sides using Python:
+   urllib.parse.unquote(url.split('?')[0].split('#')[0])
+
+
 ### Data Assets
 - **12,487 HTML pages** (Minecraft Wiki snapshot)
 - **61,000+ images** (Local WebP files)

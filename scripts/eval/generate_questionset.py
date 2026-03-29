@@ -194,7 +194,7 @@ Rules:
 - Answers must be fully supported by the page text  do NOT add outside knowledge.
 - Determine the 'difficulty' of the question: 'easy' (direct fact extraction), 'medium' (requires combining 2+ facts across the page), or 'hard' (complex reasoning/edge cases).
 - Look at the provided "Outgoing Links" array. For each question, identify up to 3 links from that array that are highly relevant to the specific question topic to serve as gold-standard retrieval targets. Return them as full URLs (e.g. "https://minecraft.wiki/w/Diamond").
-- If relevant images are provided in the user prompt array visually, you may identify their "image_hash" (up to 2) that are highly relevant to the question. Return them in the "relevant_images" list. If no image is relevant, leave it empty.
+- An array of images encoded visually is provided at the end of the prompt, each labeled with "[IMAGE HASH: <hash>]". You MUST try to ensure that at least one of the questions generated is directly related to a visual concept shown in one of the provided images. Return their exact image hashes in the "relevant_images" list. If no image is relevant for a specific question, leave it empty.
 - Focus on: game mechanics, crafting recipes, mob behavior, block properties, etc.
 - Do not ask meta-questions about the wiki itself."""
 
@@ -267,10 +267,40 @@ def parse_json_from_text(text: str) -> Optional[dict]:
     return None
 
 
-def generate_qa_pairs(page: dict, interlinks: Dict[str, List[str]], image_metadata: Dict[str, list], model: str) -> List[dict]:
+def generate_qa_pairs(page: dict, interlinks: Dict[str, List[str]], title_to_page: dict, url_to_image: dict, model: str) -> List[dict]:
     # Find matching images
-    page_filename = Path(page.get("file_path", "")).name
-    images_for_page = image_metadata.get(page_filename, [])[:10]  # Cap at 10 to avoid payload explosion
+    page_title = page.get("title", "")
+    
+    def get_images_for_p(p_dict, max_count=3):
+        res = []
+        import urllib.parse
+        import os
+        for img_ref in p_dict.get("images", []):
+            raw_url = img_ref.get("url", "")
+            norm_url = urllib.parse.unquote(raw_url.split("?")[0].split("#")[0])
+            mapped = url_to_image.get(norm_url)
+            if mapped and mapped not in res:
+                if os.path.exists(mapped.get("file_path", "")):
+                    res.append(mapped)
+                    if len(res) >= max_count:
+                        break
+        return res
+
+    # 1. Main page images (up to 3)
+    images_for_page = get_images_for_p(page, 3)
+    main_images_len = len(images_for_page)
+    
+    # 2. Linked pages images
+    outgoing = interlinks.get(page_title, [])
+    for link_title in outgoing[:5]:  # Look at top 5 linked pages
+        linked_page = title_to_page.get(link_title)
+        if linked_page:
+            linked_imgs = get_images_for_p(linked_page, 2)
+            for img in linked_imgs:
+                if img not in images_for_page and len(images_for_page) < 10:
+                    images_for_page.append(img)
+                
+    logger.info(f"Gathered {len(images_for_page)} images for context ({main_images_len} local, {len(images_for_page)-main_images_len} linked)")
     
     user_prompt = build_user_prompt(page, interlinks, images_for_page)
     timestamp = datetime.now(timezone.utc).isoformat()
@@ -286,6 +316,12 @@ def generate_qa_pairs(page: dict, interlinks: Dict[str, List[str]], image_metada
         try:
             with open(img["file_path"], "rb") as image_file:
                 b64_img = base64.b64encode(image_file.read()).decode("utf-8")
+                
+                user_content.append({
+                    "type": "text",
+                    "text": f"\n[IMAGE HASH: {img['image_hash']}]\n"
+                })
+                
                 user_content.append({
                     "type": "image_url",
                     "image_url": {"url": f"data:image/webp;base64,{b64_img}"}
@@ -376,6 +412,7 @@ def main():
     try:
         with open('data/processed/metadata.json', 'r', encoding='utf-8') as f:
             metadata = json.load(f)["pages"]
+        title_to_page = {p['title']: p for p in metadata}
             
         with open('data/processed/interlinks.json', 'r', encoding='utf-8') as f:
             interlinks = json.load(f)["graph"]
@@ -383,10 +420,12 @@ def main():
         with open('data/processed/image_metadata.json', 'r', encoding='utf-8') as f:
             raw_image_data = json.load(f)["images"]
             
-        image_metadata = defaultdict(list)
+        import urllib.parse
+        url_to_image = {}
         for img in raw_image_data:
-            for sp in img.get("source_pages", []):
-                image_metadata[sp].append(img)
+            norm_url = urllib.parse.unquote(img.get('original_url', '').split('?')[0].split('#')[0])
+            if norm_url:
+                url_to_image[norm_url] = img
     except Exception as e:
         logger.error(f"Failed loading data: {e}")
         return
@@ -419,7 +458,7 @@ def main():
             
         logger.info(f"[{i+1}/{len(top_pages)}] Generating QA for: {page_title} (Words: {page.get('word_count')})")
 
-        pairs = generate_qa_pairs(page, interlinks, image_metadata, model=args.model)
+        pairs = generate_qa_pairs(page, interlinks, title_to_page, url_to_image, model=args.model)
         if pairs:
             dataset.extend(pairs)
             new_count += len(pairs)
