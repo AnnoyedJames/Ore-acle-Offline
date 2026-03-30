@@ -4,12 +4,13 @@ Pipeline Orchestrator — end-to-end data processing for Ore-acle Offline.
 Runs each stage sequentially, reusing intermediate artifacts when possible.
 
 Stages:
-  1. Scrape   → data/raw/html/*.html  (skip if HTML already exists)
-  2. Download → data/raw/images/*.webp (skip if images already exist)
-  3. Clean    → data/processed/metadata.json
-  4. Chunk    → data/processed/chunks.json
-  5. Embed    → data/processed/embeddings/{embeddings.npy, chunk_ids.json}
-  6. Ingest   → ChromaDB + SQLite FTS5
+  1. Scrape        → data/raw/html/*.html  (skip if HTML already exists)
+  2. Download      → data/raw/images/*.webp (skip if images already exist)
+  3. Verify Images → Checks if all downloaded images are actually on disk
+  4. Clean         → data/processed/metadata.json
+  5. Chunk         → data/processed/chunks.json
+  6. Embed         → data/processed/embeddings/{embeddings.npy, chunk_ids.json}
+  7. Ingest        → ChromaDB + SQLite FTS5
 
 Usage:
     python -m backend.pipeline.run                # full pipeline
@@ -34,7 +35,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-STAGES = ["scrape", "download", "clean", "chunk", "embed", "ingest"]
+STAGES = ["scrape", "download", "verify_images", "clean", "chunk", "embed", "ingest"]
 
 
 def _stage_scrape() -> None:
@@ -51,6 +52,47 @@ def _stage_download() -> None:
 
     downloader = ImageDownloader()
     downloader.process_html_files()
+
+
+def _stage_verify_images() -> None:
+    """Stage 2.5: Verify downloaded images exist physically."""
+    metadata_file = settings.data_processed_dir / "image_metadata.json"
+    images_dir = settings.data_raw_dir / "images"
+
+    if not metadata_file.exists():
+        logger.info("Verify Images: image_metadata.json not found, skipping.")
+        return
+
+    with open(metadata_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    images = data.get("images", [])
+    expected_count = 0
+    missing = []
+    
+    # We will also clean up the metadata to force re-download if missing
+    valid_images = []
+    
+    for img in images:
+        if img.get("downloaded", False):
+            expected_count += 1
+            local_name = img.get("local_filename")
+            if local_name and not (images_dir / local_name).exists():
+                missing.append(local_name)
+                # Reset downloaded status so it tries again next time
+                img["downloaded"] = False
+                img["error"] = "File missing from disk during verification"
+        valid_images.append(img)
+                
+    if missing:
+        logger.warning(f"Verify Images: {len(missing)} images missing from disk!")
+        logger.warning(f"Examples: {missing[:5]}")
+        logger.info("Updating metadata to flag missing images for re-download...")
+        data["images"] = valid_images
+        with open(metadata_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    else:
+        logger.info(f"Verify Images: All {expected_count} expected images found on disk.")
 
 
 def _stage_clean() -> None:
@@ -153,6 +195,7 @@ def _stage_ingest() -> None:
 STAGE_FUNCS = {
     "scrape": _stage_scrape,
     "download": _stage_download,
+    "verify_images": _stage_verify_images,
     "clean": _stage_clean,
     "chunk": _stage_chunk,
     "embed": _stage_embed,
