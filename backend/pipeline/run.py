@@ -133,10 +133,11 @@ def _stage_ingest() -> None:
     logger.info(f"Ingest: loaded {len(chunks)} chunks")
 
     # Load embeddings
-    emb_path = settings.data_processed_dir / "embeddings" / "embeddings.npy"
-    ids_path = settings.data_processed_dir / "embeddings" / "chunk_ids.json"
+    model_dir = settings.get_model_embeddings_dir()
+    emb_path = model_dir / "embeddings.npy"
+    ids_path = model_dir / "chunk_ids.json"
     if not emb_path.exists() or not ids_path.exists():
-        raise FileNotFoundError("Embeddings not found. Run 'embed' stage first.")
+        raise FileNotFoundError(f"Embeddings not found at {model_dir}. Run 'embed' stage first.")
     embeddings = np.load(emb_path)
     with open(ids_path, "r") as f:
         chunk_ids = json.load(f)

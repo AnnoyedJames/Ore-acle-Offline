@@ -31,9 +31,8 @@ class EmbeddingConfig:
     chunks_file: Path = field(
         default_factory=lambda: Path("data/processed/chunks.json")
     )
-    output_dir: Path = field(
-        default_factory=lambda: Path("data/processed/embeddings")
-    )
+    # If None, __init__ will set it to settings.get_model_embeddings_dir(model_name)
+    output_dir: Optional[Path] = None
     model_name: str = field(default_factory=lambda: settings.embedding_model)
     batch_size: int = field(default_factory=lambda: settings.embedding_batch_size)
     device: str = field(default_factory=lambda: settings.embedding_device)
@@ -55,6 +54,8 @@ class EmbeddingGenerator:
 
     def __init__(self, config: Optional[EmbeddingConfig] = None):
         self.config = config or EmbeddingConfig()
+        if self.config.output_dir is None:
+            self.config.output_dir = settings.get_model_embeddings_dir(self.config.model_name)
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
         self.model = None
 

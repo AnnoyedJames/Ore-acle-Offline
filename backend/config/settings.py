@@ -7,6 +7,7 @@ Usage:
 """
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -15,27 +16,119 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Embedding Model Registry
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class EmbeddingModelInfo:
+    """Describes an embedding model used in the ablation study."""
+    model_id: str
+    dimension: int
+    backend: str  # "local" (sentence-transformers) or "api" (OpenRouter)
+    task_prefix: str = ""
+    query_prefix: str = ""
+
+
+EMBEDDING_MODELS: dict[str, EmbeddingModelInfo] = {
+    "BAAI/bge-m3": EmbeddingModelInfo(
+        model_id="BAAI/bge-m3",
+        dimension=1024,
+        backend="local",
+    ),
+    "nomic-ai/nomic-embed-text-v1.5": EmbeddingModelInfo(
+        model_id="nomic-ai/nomic-embed-text-v1.5",
+        dimension=768,
+        backend="local",
+        task_prefix="search_document: ",
+        query_prefix="search_query: ",
+    ),
+    "intfloat/multilingual-e5-large": EmbeddingModelInfo(
+        model_id="intfloat/multilingual-e5-large",
+        dimension=1024,
+        backend="local",
+        task_prefix="passage: ",
+        query_prefix="query: ",
+    ),
+    "google/gemini-embedding-001": EmbeddingModelInfo(
+        model_id="google/gemini-embedding-001",
+        dimension=3072,
+        backend="api",
+    ),
+}
+
+DEFAULT_EMBEDDING_MODEL = "BAAI/bge-m3"
+
+# ---------------------------------------------------------------------------
+# LLM Model Registry
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class LLMModelInfo:
+    """Describes an LLM used in the generation evaluation."""
+    model_id: str            # OpenRouter ID or Ollama tag
+    backend: str             # "ollama" or "openrouter"
+    label: str               # Short human-readable label for reports
+    param_billions: float    # Approximate parameter count (for plots)
+
+
+LLM_MODELS: dict[str, LLMModelInfo] = {
+    "qwen3-0.6b": LLMModelInfo(
+        model_id="qwen3:0.6b",
+        backend="ollama",
+        label="Qwen3 0.6B",
+        param_billions=0.6,
+    ),
+    "qwen3-1.7b": LLMModelInfo(
+        model_id="qwen3:1.7b",
+        backend="ollama",
+        label="Qwen3 1.7B",
+        param_billions=1.7,
+    ),
+    "qwen3.5-9b": LLMModelInfo(
+        model_id="qwen3.5:9b",
+        backend="ollama",
+        label="Qwen3.5 9B",
+        param_billions=9.0,
+    ),
+    "qwen3-32b": LLMModelInfo(
+        model_id="qwen/qwen3-32b",
+        backend="openrouter",
+        label="Qwen3 32B",
+        param_billions=32.0,
+    ),
+    "gemini-pro": LLMModelInfo(
+        model_id="google/gemini-3.1-pro-preview",
+        backend="openrouter",
+        label="Gemini 3.1 Pro",
+        param_billions=0,  # proprietary, size unknown
+    ),
+}
+
+DEFAULT_LLM = "qwen3.5-9b"
+
+
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables / .env file."""    
+    """Application settings loaded from environment variables / .env file."""
 
     # --- OpenRouter (evals & generation gateway) ---
     openrouter_api_key: str = Field(default="", description="OpenRouter API key")
 
     # --- Embedding ---
     embedding_model: str = Field(
-        default="intfloat/multilingual-e5-large",
-        description="HuggingFace model ID for sentence-transformers",
+        default=DEFAULT_EMBEDDING_MODEL,
+        description="Model ID — must be a key in EMBEDDING_MODELS",
     )
     embedding_dim: int = Field(default=1024, description="Embedding vector dimensions")
     embedding_batch_size: int = Field(
         default=128, description="Batch size for embedding generation"
     )
     embedding_task_prefix: str = Field(
-        default="passage: ",
+        default="",
         description="Prefix prepended to passage texts before embedding",
     )
     embedding_query_prefix: str = Field(
-        default="query: ",
+        default="",
         description="Prefix prepended to query texts before embedding",
     )
     embedding_device: str = Field(
@@ -104,6 +197,12 @@ class Settings(BaseSettings):
         default_factory=lambda: Path("data/processed/embeddings"),
         description="Directory for saved embedding arrays",
     )
+
+    def get_model_embeddings_dir(self, model_name: str = None) -> Path:
+        """Get the specific directory where a model's embeddings are stored."""
+        model = model_name or self.embedding_model
+        safe_name = model.replace("/", "_").replace("\\", "_")
+        return self.embeddings_dir / safe_name
 
     model_config = {
         "env_file": ".env",

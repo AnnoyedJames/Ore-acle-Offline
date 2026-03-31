@@ -31,14 +31,29 @@ class ChromaStore:
 
     Each document is a chunk. Embeddings are supplied externally
     (from EmbedderProtocol) — ChromaDB is used as a pure vector index.
+
+    Pass *embedding_model* to create a model-specific collection
+    (different embedding models produce different dimensions).
     """
 
-    COLLECTION_NAME = "ore_acle_chunks"
+    DEFAULT_COLLECTION = "ore_acle_chunks"
 
-    def __init__(self, db_dir: Optional[Path] = None):
+    def __init__(
+        self,
+        db_dir: Optional[Path] = None,
+        embedding_model: Optional[str] = None,
+    ):
         self.db_dir = str(db_dir or settings.chroma_db_dir)
+        self._collection_name = self._make_collection_name(embedding_model)
         self._client: chromadb.ClientAPI | None = None
         self._collection: chromadb.Collection | None = None
+
+    @classmethod
+    def _make_collection_name(cls, model_id: Optional[str]) -> str:
+        if model_id is None:
+            return cls.DEFAULT_COLLECTION
+        safe = model_id.replace("/", "_").replace("-", "_").replace(".", "_")
+        return f"chunks_{safe}"
 
     @property
     def client(self) -> chromadb.ClientAPI:
@@ -50,7 +65,7 @@ class ChromaStore:
     def collection(self) -> chromadb.Collection:
         if self._collection is None:
             self._collection = self.client.get_or_create_collection(
-                name=self.COLLECTION_NAME,
+                name=self._collection_name,
                 metadata={"hnsw:space": "cosine"},
             )
         return self._collection
@@ -147,7 +162,7 @@ class ChromaStore:
     def reset(self) -> None:
         """Delete and recreate the collection."""
         try:
-            self.client.delete_collection(self.COLLECTION_NAME)
+            self.client.delete_collection(self._collection_name)
         except Exception:
             pass
         self._collection = None

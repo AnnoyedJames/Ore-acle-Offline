@@ -19,7 +19,24 @@ import numpy as np
 from backend.config.settings import settings
 from backend.database.local_stores import ChromaStore, SQLiteStore
 from backend.embeddings.generator import EmbeddingGenerator
-from backend.retrieval.search import SearchResult
+from dataclasses import dataclass, field
+
+@dataclass
+class SearchResult:
+    chunk_id: str
+    page_title: str
+    page_url: str
+    section_heading: str
+    section_level: int
+    text: str
+    token_count: int
+    chunk_type: str
+    page_type: str
+    rrf_score: float
+    infobox: Optional[dict] = None
+    images: list[dict] = field(default_factory=list)
+    semantic_score: Optional[float] = None
+    keyword_score: Optional[float] = None
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +160,7 @@ class HybridSearch:
     def search(
         self,
         query: str,
+        mode: str = "hybrid",
         filter_types: Optional[list[str]] = None,
         chunks_lookup: Optional[dict[str, dict]] = None,
     ) -> list[SearchResult]:
@@ -153,6 +171,8 @@ class HybridSearch:
         ----------
         query : str
             Natural language search query.
+        mode : str
+            ``"hybrid"`` (default), ``"semantic"``, or ``"keyword"``.
         filter_types : list[str] | None
             Optional page_type filter (not yet implemented for local).
         chunks_lookup : dict | None
@@ -164,8 +184,15 @@ class HybridSearch:
         list[SearchResult]
             Top-k results sorted by RRF score.
         """
-        semantic_results = self._semantic_search(query)
-        keyword_results = self._keyword_search(query)
+        if mode == "semantic":
+            semantic_results = self._semantic_search(query)
+            keyword_results = []
+        elif mode == "keyword":
+            semantic_results = []
+            keyword_results = self._keyword_search(query)
+        else:  # hybrid
+            semantic_results = self._semantic_search(query)
+            keyword_results = self._keyword_search(query)
 
         logger.info(
             f"Query: '{query[:50]}' → "
