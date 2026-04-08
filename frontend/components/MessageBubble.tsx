@@ -9,6 +9,32 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { expandSemanticTags, parseMinecraftFormatting } from '@/lib/minecraft-colors';
 import Image from 'next/image';
+import { ChevronDown, BrainCircuit } from 'lucide-react';
+
+// ---------------------------------------------------------------------------
+// Thinking block — collapsible, styled like a dev panel
+// ---------------------------------------------------------------------------
+function ThinkingBlock({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-3 rounded-lg border border-diamond-blue/30 overflow-hidden text-xs">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-3 py-2 bg-diamond-blue/10 hover:bg-diamond-blue/20 transition-colors text-diamond-blue font-medium"
+      >
+        <BrainCircuit className="w-3.5 h-3.5 shrink-0" />
+        <span className="flex-1 text-left">Thinking process</span>
+        <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <pre className="px-3 py-2 text-gray-500 dark:text-gray-400 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto bg-black/5 dark:bg-white/5">
+          {text.trim()}
+        </pre>
+      )}
+    </div>
+  );
+}
 
 interface MessageBubbleProps {
   message: Message;
@@ -75,18 +101,28 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   }, [tooltip]);
 
   const renderContentWithCitations = (content: string) => {
-    const processedContent = isUser ? content : parseMinecraftFormatting(expandSemanticTags(content));
+    // Extract <think>...</think> block (reasoning models like Qwen3)
+    const thinkMatch = content.match(/^<think>([\s\S]*?)<\/think>\s*/i);
+    const thinkText = thinkMatch ? thinkMatch[1] : null;
+    const mainContent = thinkMatch ? content.slice(thinkMatch[0].length) : content;
+
+    const processedContent = isUser ? mainContent : parseMinecraftFormatting(expandSemanticTags(mainContent));
 
     if (!message.citations || message.citations.length === 0) {
       return (
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-          {processedContent}
-        </ReactMarkdown>
+        <>
+          {thinkText && !isUser && <ThinkingBlock text={thinkText} />}
+          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+            {processedContent}
+          </ReactMarkdown>
+        </>
       );
     }
 
     return (
-      <div className="prose prose-sm dark:prose-invert max-w-none min-w-0 w-full">
+      <>
+        {thinkText && !isUser && <ThinkingBlock text={thinkText} />}
+        <div className="prose prose-sm dark:prose-invert max-w-none min-w-0 w-full">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}
@@ -143,6 +179,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           {processedContent}
         </ReactMarkdown>
       </div>
+      </>
     );
   };
 

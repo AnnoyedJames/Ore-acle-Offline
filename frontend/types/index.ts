@@ -28,3 +28,21 @@ export interface ConversationState {
   isLoading: boolean;
   conversationId?: string;
 }
+
+export interface LLMSettings {
+  model: string;
+  temperature: number;
+  top_p: number;
+  max_tokens: number;
+  search_mode: 'semantic' | 'keyword' | 'hybrid';
+  thinking: boolean;
+}
+
+export const DEFAULT_LLM_SETTINGS: LLMSettings = {
+  model: 'qwen3-4b',
+  temperature: 0.7,
+  top_p: 0.9,
+  max_tokens: 512,
+  search_mode: 'hybrid',
+  thinking: true,
+};

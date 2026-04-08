@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Message } from '@/types';
+import { Message, LLMSettings, DEFAULT_LLM_SETTINGS } from '@/types';
 import MessageBubble from './MessageBubble';
 import LoadingSpinner from './LoadingSpinner';
-import { Send } from 'lucide-react';
+import LLMSettingsPanel from './LLMSettingsPanel';
+import { Send, SlidersHorizontal } from 'lucide-react';
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -15,6 +16,8 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ messages, setMessages, initialPrompt }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [settings, setSettings] = useState<LLMSettings>(DEFAULT_LLM_SETTINGS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialPrompt = useRef(false);
 
@@ -56,7 +59,16 @@ export default function ChatInterface({ messages, setMessages, initialPrompt }: 
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history }),
+        body: JSON.stringify({
+          message: text,
+          history,
+          model: settings.model,
+          temperature: settings.temperature,
+          top_p: settings.top_p,
+          max_tokens: settings.max_tokens,
+          search_mode: settings.search_mode,
+          thinking: settings.thinking,
+        }),
       });
 
       const data = await response.json();
@@ -64,7 +76,7 @@ export default function ChatInterface({ messages, setMessages, initialPrompt }: 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.response,
+        content: data.response ?? data.error ?? 'No response from backend. Is the FastAPI server running at localhost:8000?',
         citations: data.citations,
         images: data.images,
         timestamp: new Date(),
@@ -92,42 +104,63 @@ export default function ChatInterface({ messages, setMessages, initialPrompt }: 
   };
 
   return (
-    <div className="flex flex-col h-full min-w-0 w-full">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-4 sm:py-6 min-w-0 w-full">
-        {messages.map(message => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
-        {isLoading && (
-          <div className="flex justify-start mb-4">
-            <div className="glass glass-light dark:glass-dark rounded-lg p-4">
-              <LoadingSpinner />
+    <div className="flex h-full min-w-0 w-full">
+
+      {/* Main chat column */}
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-4 sm:py-6 min-w-0 w-full">
+          {messages.map(message => (
+            <MessageBubble key={message.id} message={message} />
+          ))}
+          {isLoading && (
+            <div className="flex justify-start mb-4">
+              <div className="glass glass-light dark:glass-dark rounded-lg p-4">
+                <LoadingSpinner />
+              </div>
             </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input */}
+        <div className="border-t border-gray-300 dark:border-gray-700 p-2 sm:p-4 glass glass-light dark:glass-dark">
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask about Minecraft..."
+              className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-black/50 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-diamond-blue"
+              disabled={isLoading}
+            />
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(o => !o)}
+              className={`px-3 py-2 rounded-lg border transition-colors ${
+                settingsOpen
+                  ? 'bg-diamond-blue/20 border-diamond-blue text-diamond-blue'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-diamond-blue hover:text-diamond-blue'
+              }`}
+              title="LLM Settings"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="px-4 py-2 rounded-lg bg-diamond-blue hover:bg-diamond-blue/80 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold transition-colors flex items-center gap-2"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
       </div>
 
-      {/* Input */}
-      <div className="border-t border-gray-300 dark:border-gray-700 p-2 sm:p-4 glass glass-light dark:glass-dark">
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about Minecraft..."
-            className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-black/50 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-diamond-blue"
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="px-4 py-2 rounded-lg bg-diamond-blue hover:bg-diamond-blue/80 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold transition-colors flex items-center gap-2"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
-      </div>
+      {/* Settings Panel */}
+      {settingsOpen && (
+        <LLMSettingsPanel settings={settings} onChange={setSettings} />
+      )}
     </div>
   );
 }

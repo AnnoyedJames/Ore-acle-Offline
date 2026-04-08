@@ -57,6 +57,7 @@ const SEMANTIC_TAGS: Record<string, { prefix: string; suffix: string }> = {
  * No nesting — inner tags are left as-is (the LLM is prompted not to nest).
  */
 export function expandSemanticTags(text: string): string {
+  if (!text) return text ?? '';
   return text.replace(
     /\[(heading|sub|term|tip|warning|note)\]([\s\S]*?)\[\/\1\]/g,
     (_match, tag: string, content: string) => {
