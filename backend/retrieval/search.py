@@ -65,9 +65,10 @@ class HybridSearch:
         self.rrf_k = settings.rrf_k
 
     @property
-    def embedder(self) -> EmbeddingGenerator:
+    def embedder(self):
         if self._embedder is None:
-            self._embedder = EmbeddingGenerator()
+            from backend.embeddings import get_embedder
+            self._embedder = get_embedder()
         return self._embedder
 
     def _semantic_search(self, query: str) -> list[dict]:
@@ -108,18 +109,44 @@ class HybridSearch:
         sorted_ids = sorted(scores.keys(), key=lambda x: -scores[x])
         top_ids = sorted_ids[: self.top_k]
 
+        # Build a lookup from all result sources in priority order:
+        # 1. ChromaDB semantic metadata (has everything except text)
+        # 2. chunks_lookup (optional in-memory dict, legacy)
+        # 3. SQLite batch fetch (cheap, on-demand, only what we need)
+        sem_by_id = {r["id"]: r for r in semantic_results}
+        kw_by_id = {r["chunk_id"]: r for r in keyword_results}
+
+        # Determine which IDs still need text hydration from SQLite
+        ids_needing_text = [
+            cid for cid in top_ids
+            if cid not in chunks_lookup
+            and not sem_by_id.get(cid, {}).get("text")
+        ]
+        sqlite_rows: dict[str, dict] = {}
+        if ids_needing_text:
+            sqlite_rows = self.sqlite.get_by_ids(ids_needing_text)
+
         results = []
         for cid in top_ids:
-            # Prefer semantic result metadata (has full fields),
-            # fall back to chunks.json lookup
-            sem = next(
-                (r for r in semantic_results if r["id"] == cid), None
-            )
-            if sem and "text" in sem:
-                c = sem
+            # Prefer semantic result metadata (has full fields except text),
+            # fall back to keyword result, then chunks_lookup, then SQLite
+            c: dict = {}
+            if cid in sem_by_id:
+                c = sem_by_id[cid]
             elif cid in chunks_lookup:
                 c = chunks_lookup[cid]
-            else:
+            elif cid in kw_by_id:
+                c = kw_by_id[cid]
+
+            # Hydrate text: prefer chunks_lookup / existing field, then SQLite
+            text = c.get("text", "")
+            if not text:
+                if cid in chunks_lookup:
+                    text = chunks_lookup[cid].get("text", "")
+                elif cid in sqlite_rows:
+                    text = sqlite_rows[cid].get("text", "")
+
+            if not c and not text:
                 logger.warning(f"Chunk {cid} not found in any source, skipping")
                 continue
 
@@ -141,10 +168,11 @@ class HybridSearch:
             results.append(SearchResult(
                 chunk_id=cid,
                 page_title=c.get("page_title", ""),
-                page_url=c.get("page_url", ""),
+                page_url=c.get("page_url", "") or
+                    f"https://minecraft.wiki/w/{c.get('page_title', '').replace(' ', '_')}",
                 section_heading=c.get("section_heading", ""),
                 section_level=c.get("section_level", 2),
-                text=c.get("text", ""),
+                text=text,
                 token_count=c.get("token_count", 0),
                 chunk_type=c.get("chunk_type", "section"),
                 page_type=c.get("page_type", "other"),

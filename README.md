@@ -29,12 +29,17 @@ Ore-acle Offline is a port of the original cloud-native RAG system to a modular,
 | Wiki image downloader | ✅ Complete (61,248 images) |
 | Image processing (WebP conversion) | ✅ Complete |
 | Text cleaner (HTML → JSON) | ✅ Complete |
-| Intelligent chunking | ✅ Complete (~347k chunks) |
-| **Vector Database** | 🚧 Migrating to ChromaDB (Local) |
-| **Keyword Search** | 🚧 Migrating to SQLite FTS5 (Local) |
-| **Image Hosting** | ✅ Local Filesystem (`data/raw/images`) |
-| **Backend API** | 🚧 Migrating to FastAPI (`local_server.py`) |
-| **RAG Pipeline** | 🚧 Refactoring for Local Execution |
+| Intelligent chunking (section-aware) | ✅ Complete (121,080 chunks) |
+| **Vector Database** | ✅ ChromaDB — 121,080 chunks, `chunks_baai_bge_m3` |
+| **Keyword Search** | ✅ SQLite FTS5 — 121,618 rows, OR semantics |
+| **Image Hosting** | ✅ Local Filesystem (`data/raw/images`, 61k WebP) |
+| **Backend API** | 🚧 FastAPI (`backend/api/server.py`) |
+| **Evaluation Framework** | ✅ Two-phase ablation (`run_eval.py`) |
+| **Gold Questionset** | ✅ 300 Q/A pairs (`data/eval/questionset.json`) |
+| **Search Axis Eval** | ✅ Done — Semantic wins (MRR=0.620 vs Hybrid=0.575) |
+| **Embedding Axis Eval** | 🔲 Needs nomic / e5-large / gemini-embedding ingests |
+| **Chunking Axis Eval** | 🔲 Needs LangChain chunker ingest |
+| **Generator Eval** | 🔲 5 LLMs, uses semantic mode |
 | **Frontend UI** | ✅ Adapted for Local API |
 
 ---

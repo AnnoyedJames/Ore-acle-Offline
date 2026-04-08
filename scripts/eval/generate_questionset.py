@@ -1,4 +1,4 @@
-﻿"""
+"""
 Evaluation Question Set Generator for Ore-acle Offline
 ======================================================
 
@@ -37,21 +37,26 @@ Output Schema (per item)
 """
 
 import argparse
-import base64
 import json
 import logging
 import math
 import os
-import random
 import re
+import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
+# Ensure project root is on the path so backend imports work when running from any cwd
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict
+
+from backend.database.local_stores import ChromaStore
+from backend.embeddings.api_generator import ApiEmbeddingGenerator
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -63,7 +68,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Configuration[]
 # ---------------------------------------------------------------------------
 load_dotenv()
 
@@ -79,6 +84,192 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
 )
 
+_chroma_store: Optional[ChromaStore] = None
+_embedder: Optional[ApiEmbeddingGenerator] = None
+_page_images: Dict[str, List[Dict]] = {}    # page_title → [{url, local_filename, alt_text}]
+
+
+def _get_chroma_store() -> ChromaStore:
+    global _chroma_store
+    if _chroma_store is None:
+        _chroma_store = ChromaStore(embedding_model="baai/bge-m3")
+    return _chroma_store
+
+
+def _get_embedder() -> ApiEmbeddingGenerator:
+    global _embedder
+    if _embedder is None:
+        _embedder = ApiEmbeddingGenerator(model_id="baai/bge-m3")
+    return _embedder
+
+
+def _build_page_images() -> Dict[str, List[Dict]]:
+    """Build page_title → downloaded images lookup.
+
+    Join strategy:
+      - metadata.json stores every image a page requested, each with a pre-computed
+        local_filename (the .webp basename the scraper would write).
+      - image_metadata.json records every file that was *actually* downloaded.
+      - We match on local_filename — no URL normalisation needed, no thumbnail ambiguity.
+      - metadata.json is 771 MB, so we stream it with ijson instead of json.load().
+
+    Returns {page_title: [{url, local_filename, alt_text}, ...]}
+    where url is the canonical URL from image_metadata.json.
+    """
+    import ijson
+
+    # Step 1: build local_filename → canonical_url from image_metadata.json (32 MB, fast)
+    img_meta_path = Path("data/processed/image_metadata.json")
+    if not img_meta_path.exists():
+        logger.warning("image_metadata.json not found — page images index will be empty")
+        return {}
+    with open(img_meta_path, encoding="utf-8") as f:
+        idata = json.load(f)
+    images_list = idata.get("images", idata) if isinstance(idata, dict) else idata
+    downloaded: Dict[str, str] = {}  # local_filename → canonical original_url
+    for img in images_list:
+        fn = img.get("local_filename", "")
+        url = img.get("original_url", "")
+        if fn and url:
+            downloaded[fn] = url
+    logger.info(f"Downloaded image set: {len(downloaded)} files")
+
+    # Step 2: stream metadata.json page-by-page to build the lookup
+    metadata_path = Path("data/processed/metadata.json")
+    if not metadata_path.exists():
+        logger.warning("metadata.json not found — page images index will be empty")
+        return {}
+
+    page_imgs: Dict[str, List[Dict]] = {}
+    logger.info("Streaming metadata.json to build page images index (may take ~10s)...")
+    with open(metadata_path, "rb") as f:
+        for page in ijson.items(f, "pages.item"):
+            title = page.get("title", "")
+            if not title:
+                continue
+            imgs: List[Dict] = []
+            seen_fns: set = set()
+            for img in page.get("images", []):
+                fn = img.get("local_filename", "")
+                url = img.get("url", "")
+                if not fn or not url:
+                    continue
+                if url.lower().endswith((".svg", ".gif")):
+                    continue
+                if fn in seen_fns or fn not in downloaded:
+                    continue
+                seen_fns.add(fn)
+                imgs.append({
+                    "url": downloaded[fn],      # canonical URL, not the thumbnail
+                    "local_filename": fn,
+                    "alt_text": img.get("alt_text", ""),
+                })
+            if imgs:
+                page_imgs[title] = imgs
+
+    logger.info(f"Page images index: {len(page_imgs)} pages with downloaded images")
+    return page_imgs
+
+
+def retrieve_image_candidates(
+    qa_text: str,
+    source_page: str,
+    top_k: int = 30,
+    max_candidates: int = 30,
+) -> List[Dict[str, str]]:
+    """Retrieve image candidates for a Q/A pair.
+
+    Strategy:
+      1. Always include images from source_page first (guaranteed relevance).
+      2. Run semantic search to find the top-K related page_titles.
+      3. Add downloaded images from those pages until max_candidates is reached.
+
+    Returns up to *max_candidates* dicts with keys: url, local_filename, alt_text.
+    """
+    candidates: List[Dict[str, str]] = []
+    seen_filenames: set = set()
+
+    def _add_page(title: str) -> None:
+        for img in _page_images.get(title, []):
+            fname = img["local_filename"]
+            if fname not in seen_filenames:
+                seen_filenames.add(fname)
+                candidates.append(img)
+
+    # 1. Source page images first
+    _add_page(source_page)
+
+    # 2. Semantically similar pages
+    try:
+        query_vec = _get_embedder().embed_query(qa_text)
+        results = _get_chroma_store().query(query_vec, n_results=50)
+        seen_titles: set = {source_page}
+        for chunk in results:
+            if len(candidates) >= max_candidates:
+                break
+            title = chunk.get("page_title", "")
+            if title and title not in seen_titles:
+                seen_titles.add(title)
+                _add_page(title)
+    except Exception as e:
+        logger.warning(f"Semantic image search failed: {e}")
+
+    return candidates[:max_candidates]
+
+
+def select_images_with_llm(
+    question: str,
+    answer: str,
+    candidates: List[Dict[str, str]],
+    model: str,
+) -> List[Dict[str, str]]:
+    """Ask the LLM to pick the best images from *candidates* for this Q/A pair.
+
+    Returns a list of dicts with keys: url, local_filename.
+    """
+    if not candidates:
+        return []
+
+    lines = []
+    for i, img in enumerate(candidates, 1):
+        alt = img.get("alt_text", "")
+        fname = img["local_filename"]
+        lines.append(f"[Image {i}] {fname}" + (f" — {alt}" if alt else ""))
+    candidates_text = "\n".join(lines)
+
+    prompt = (
+        f"Question: {question}\n\n"
+        f"Answer: {answer}\n\n"
+        f"Available images:\n{candidates_text}\n\n"
+        "Select 3–5 images that best illustrate this answer. "
+        "Prefer images that show the subject itself, relevant crafting/UI screens, or in-game screenshots. "
+        "If fewer than 3 images fit well, include the closest ones anyway to reach 3. "
+        "Return ONLY a JSON array of selected labels, e.g. [\"Image 1\", \"Image 3\", \"Image 5\"]."
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+        )
+        raw = response.choices[0].message.content or ""
+        match = re.search(r"\[.*?\]", raw, re.DOTALL)
+        if not match:
+            return []
+        selected_labels: list = json.loads(match.group(0))
+    except Exception as e:
+        logger.warning(f"Image selection LLM call failed: {e}")
+        return []
+
+    label_to_img = {f"Image {i}": img for i, img in enumerate(candidates, 1)}
+    selected = []
+    for label in (selected_labels if isinstance(selected_labels, list) else []):
+        img = label_to_img.get(str(label))
+        if img:
+            selected.append({"url": img["url"], "local_filename": img["local_filename"]})
+    return selected
+
 DEFAULT_MODEL = "google/gemini-3.1-flash-lite-preview"
 
 
@@ -92,7 +283,6 @@ class QAPair(BaseModel):
     question: str
     answer: str
     relevant_links: List[str]
-    relevant_images: List[str] = []
     difficulty: str
 
 
@@ -185,18 +375,36 @@ def select_top_pages(metadata: List[dict], interlinks: Dict[str, List[str]], top
 # QA generation via LLM
 # ---------------------------------------------------------------------------
 SYSTEM_PROMPT = """\
-You are an expert evaluation dataset creator for a Minecraft Wiki RAG system.
+You are building an evaluation dataset for a Minecraft Wiki RAG system. Generate exactly 3 questions per page — they must sound like something a real player actually typed into a Discord server, Reddit post, or Google search.
 
-Your job: Given the ENTIRE text of a highly popular Minecraft Wiki page, generate 3-5 high-quality testing questions that are **strictly grounded** in the provided text.
+Tone benchmark (aim for these):
+  "can skeletons freeze to death?"
+  "whats the best y level for diamonds now"
+  "do i lose xp when i die in hardcore"
+  "why wont my villager restock"
+  "does looting affect xp drops"
+  "can you put silk touch and fortune on the same pickaxe"
+
+NEVER write questions like these:
+  "What entity state transition occurs when..." (too clinical)
+  "At what Y-coordinate range does..." (jargon)
+  "How does the X mechanic work exactly?" ("mechanic" is a writing crutch — say what the thing IS)
+  "What happens if I [contrived edge case]?" (test-question format, not how players think)
+  "What is the weird trivia about..." (players don't ask for "trivia")
+  Questions with two sub-questions joined by "and" ("how does X work and can it Y?")
 
 Rules:
-- Questions must sound like real user queries (natural language, not robotic).
-- Answers must be fully supported by the page text  do NOT add outside knowledge.
-- Determine the 'difficulty' of the question: 'easy' (direct fact extraction), 'medium' (requires combining 2+ facts across the page), or 'hard' (complex reasoning/edge cases).
-- Look at the provided "Outgoing Links" array. For each question, identify up to 3 links from that array that are highly relevant to the specific question topic to serve as gold-standard retrieval targets. Return them as full URLs (e.g. "https://minecraft.wiki/w/Diamond").
-- An array of images encoded visually is provided at the end of the prompt, each labeled with "[IMAGE HASH: <hash>]". You MUST try to ensure that at least one of the questions generated is directly related to a visual concept shown in one of the provided images. Return their exact image hashes in the "relevant_images" list. If no image is relevant for a specific question, leave it empty.
-- Focus on: game mechanics, crafting recipes, mob behavior, block properties, etc.
-- Do not ask meta-questions about the wiki itself."""
+1. Casual voice — lowercase ok, grammar slips ok, first-person "i" ok.
+2. Answers grounded entirely in the page text. No outside knowledge.
+3. Exactly one of each difficulty:
+   - 'easy'  → single direct fact a new player wants. 1–2 sentence answer with a concrete detail.
+   - 'medium' → needs combining 2+ facts (e.g. condition + outcome, exception, platform difference). 2–3 sentence answer.
+   - 'hard'  → something a 500-hour player would still Google. Real curiosity, not a contrived edge case. Should be about a specific number, threshold, or system interaction they noticed in-game. 3+ sentence answer explaining the why/how.
+4. Hard questions must NOT use the words: mechanic, conversion, reinforcement, terminal velocity, trivia, entity state, coordinate range, threshold (write around them naturally).
+5. Pick up to 3 Outgoing Link URLs relevant to each question.
+6. If the page has a crafting recipe, at least one question must ask how to craft or make the item.
+
+Do not ask meta-questions about the wiki itself."""
 
 
 def assemble_page_text(page: dict) -> str:
@@ -218,13 +426,12 @@ def assemble_page_text(page: dict) -> str:
     return "\n".join(full_text)
 
 
-def build_user_prompt(page: dict, interlinks: Dict[str, List[str]], images_to_show: List[dict]) -> str:
+def build_user_prompt(page: dict, interlinks: Dict[str, List[str]]) -> str:
     page_title = page.get("title", "")
     page_url = page.get("url", f"https://minecraft.wiki/w/{page_title.replace(' ', '_')}")
     full_text = assemble_page_text(page)
-    
+
     outgoing = interlinks.get(page_title, [])
-    # Cap outgoing links to 50 so we don't blow up the prompt entirely
     ranked_outgoing = [
         f"https://minecraft.wiki/w/{name.replace(' ', '_')}"
         for name in outgoing[:50]
@@ -233,15 +440,13 @@ def build_user_prompt(page: dict, interlinks: Dict[str, List[str]], images_to_sh
     return f"""\
 Page: {page_title}
 Primary URL: {page_url}
-Outgoing Links context: {json.dumps(ranked_outgoing)}
-Images context (hashes): {json.dumps([img['image_hash'] for img in images_to_show])}
+Outgoing Links: {json.dumps(ranked_outgoing)}
 
 --- FULL WIKI PAGE TEXT START ---
 {full_text}
 --- FULL WIKI PAGE TEXT END ---
 
-Generate 3-5 QA pairs as JSON matching this schema:
-{{"items": [{{"question": "...", "answer": "...", "relevant_links": ["url1", "url2"], "difficulty": "easy|medium|hard"}}]}}"""
+Generate your 3 QA pairs."""
 
 
 def parse_json_from_text(text: str) -> Optional[dict]:
@@ -267,72 +472,18 @@ def parse_json_from_text(text: str) -> Optional[dict]:
     return None
 
 
-def generate_qa_pairs(page: dict, interlinks: Dict[str, List[str]], title_to_page: dict, url_to_image: dict, model: str) -> List[dict]:
-    # Find matching images
+def generate_qa_pairs(page: dict, interlinks: Dict[str, List[str]], model: str) -> List[dict]:
     page_title = page.get("title", "")
-    
-    def get_images_for_p(p_dict, max_count=3):
-        res = []
-        import urllib.parse
-        import os
-        for img_ref in p_dict.get("images", []):
-            raw_url = img_ref.get("url", "")
-            norm_url = urllib.parse.unquote(raw_url.split("?")[0].split("#")[0])
-            mapped = url_to_image.get(norm_url)
-            if mapped and mapped not in res:
-                if os.path.exists(mapped.get("file_path", "")):
-                    res.append(mapped)
-                    if len(res) >= max_count:
-                        break
-        return res
-
-    # 1. Main page images (up to 3)
-    images_for_page = get_images_for_p(page, 3)
-    main_images_len = len(images_for_page)
-    
-    # 2. Linked pages images
-    outgoing = interlinks.get(page_title, [])
-    for link_title in outgoing[:5]:  # Look at top 5 linked pages
-        linked_page = title_to_page.get(link_title)
-        if linked_page:
-            linked_imgs = get_images_for_p(linked_page, 2)
-            for img in linked_imgs:
-                if img not in images_for_page and len(images_for_page) < 10:
-                    images_for_page.append(img)
-                
-    logger.info(f"Gathered {len(images_for_page)} images for context ({main_images_len} local, {len(images_for_page)-main_images_len} linked)")
-    
-    user_prompt = build_user_prompt(page, interlinks, images_for_page)
     timestamp = datetime.now(timezone.utc).isoformat()
 
-    messages = [
+    # Pass 1: Generate Q/A pairs from page text only (no images)
+    text_prompt = build_user_prompt(page, interlinks)
+    messages: List[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": text_prompt},
     ]
-    
-    user_content = [{"type": "text", "text": user_prompt}]
-    
-    # Add images
-    for img in images_for_page:
-        try:
-            with open(img["file_path"], "rb") as image_file:
-                b64_img = base64.b64encode(image_file.read()).decode("utf-8")
-                
-                user_content.append({
-                    "type": "text",
-                    "text": f"\n[IMAGE HASH: {img['image_hash']}]\n"
-                })
-                
-                user_content.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/webp;base64,{b64_img}"}
-                })
-        except Exception as e:
-            logger.warning(f"Could not load image {img['file_path']}: {e}")
-    
-    messages.append({"role": "user", "content": user_content})
 
     parsed_data = None
-
     try:
         response = client.beta.chat.completions.parse(
             model=model,
@@ -344,7 +495,7 @@ def generate_qa_pairs(page: dict, interlinks: Dict[str, List[str]], title_to_pag
         if parsed_obj:
             parsed_data = parsed_obj.model_dump()
     except Exception as e:
-        logger.debug(f"Structured output failed (falling back): {e}")
+        logger.debug(f"Structured output failed (falling back to JSON parse): {e}")
 
     if parsed_data is None:
         try:
@@ -356,28 +507,36 @@ def generate_qa_pairs(page: dict, interlinks: Dict[str, List[str]], title_to_pag
             raw_text = response.choices[0].message.content or ""
             parsed_data = parse_json_from_text(raw_text)
         except Exception as e:
-            logger.error(
-                f"LLM call failed for page {page.get('title')}: {e}"
-            )
+            logger.error(f"LLM call failed for page '{page_title}': {e}")
             return []
 
     if not parsed_data or "items" not in parsed_data:
-        logger.warning(
-            f"No valid QA pairs returned for page {page.get('title')}."
-        )
+        logger.warning(f"No valid QA pairs returned for page '{page_title}'.")
         return []
 
     results = []
     for item in parsed_data["items"]:
         links = item.get("relevant_links", [])
         safe_links = links[:3] if isinstance(links, list) else []
-        
+        question = item.get("question", "")
+        answer = item.get("answer", "")
+
+        # Pass 2: semantic image retrieval + LLM selection
+        relevant_images: List[Dict[str, str]] = []
+        try:
+            candidates = retrieve_image_candidates(f"{question} {answer}", source_page=page_title)
+            if candidates:
+                relevant_images = select_images_with_llm(question, answer, candidates, model)
+                logger.info(f"  Image selection: {len(candidates)} candidates → {len(relevant_images)} selected")
+        except Exception as e:
+            logger.warning(f"Image retrieval/selection failed for '{question[:60]}': {e}")
+
         results.append({
-            "question": item.get("question", ""),
-            "answer": item.get("answer", ""),
+            "question": question,
+            "answer": answer,
             "difficulty": item.get("difficulty", "medium"),
             "relevant_links": safe_links,
-            "relevant_images": item.get("relevant_images", []),
+            "relevant_images": relevant_images,
             "source_page": page.get("title", ""),
             "generator_model": model,
             "generated_at": timestamp,
@@ -412,23 +571,20 @@ def main():
     try:
         with open('data/processed/metadata.json', 'r', encoding='utf-8') as f:
             metadata = json.load(f)["pages"]
-        title_to_page = {p['title']: p for p in metadata}
-            
+
         with open('data/processed/interlinks.json', 'r', encoding='utf-8') as f:
             interlinks = json.load(f)["graph"]
-            
-        with open('data/processed/image_metadata.json', 'r', encoding='utf-8') as f:
-            raw_image_data = json.load(f)["images"]
-            
-        import urllib.parse
-        url_to_image = {}
-        for img in raw_image_data:
-            norm_url = urllib.parse.unquote(img.get('original_url', '').split('?')[0].split('#')[0])
-            if norm_url:
-                url_to_image[norm_url] = img
     except Exception as e:
         logger.error(f"Failed loading data: {e}")
         return
+
+    # Build image indexes before generation so every page has candidates ready
+    logger.info("Building image indexes...")
+    global _page_images
+    _page_images = _build_page_images()
+
+    # Pre-warm the ChromaDB connection so the first page doesn't incur startup lag
+    _get_chroma_store()
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
 
@@ -458,7 +614,7 @@ def main():
             
         logger.info(f"[{i+1}/{len(top_pages)}] Generating QA for: {page_title} (Words: {page.get('word_count')})")
 
-        pairs = generate_qa_pairs(page, interlinks, title_to_page, url_to_image, model=args.model)
+        pairs = generate_qa_pairs(page, interlinks, model=args.model)
         if pairs:
             dataset.extend(pairs)
             new_count += len(pairs)

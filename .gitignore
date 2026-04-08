@@ -171,4 +171,7 @@ data/raw/scrape_metadata.json
 data/processed/images_metadata.json
 data/processed/chunks.json
 /data/processed
-/data/processed
+
+# Local databases (too large for GitHub, rebuild with ingest scripts)
+data/chroma_db/
+data/sqlite_fts.db

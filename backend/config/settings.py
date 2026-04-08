@@ -55,9 +55,15 @@ EMBEDDING_MODELS: dict[str, EmbeddingModelInfo] = {
         dimension=3072,
         backend="api",
     ),
+    # BGE-M3 via OpenRouter API (same model as BAAI/bge-m3 local, different backend)
+    "baai/bge-m3": EmbeddingModelInfo(
+        model_id="baai/bge-m3",
+        dimension=1024,
+        backend="api",
+    ),
 }
 
-DEFAULT_EMBEDDING_MODEL = "BAAI/bge-m3"
+DEFAULT_EMBEDDING_MODEL = "baai/bge-m3"
 
 # ---------------------------------------------------------------------------
 # LLM Model Registry
@@ -85,11 +91,11 @@ LLM_MODELS: dict[str, LLMModelInfo] = {
         label="Qwen3 1.7B",
         param_billions=1.7,
     ),
-    "qwen3.5-9b": LLMModelInfo(
-        model_id="qwen3.5:9b",
+    "qwen3-4b": LLMModelInfo(
+        model_id="qwen3:4b",
         backend="ollama",
-        label="Qwen3.5 9B",
-        param_billions=9.0,
+        label="Qwen3 4B",
+        param_billions=4.0,
     ),
     "qwen3-32b": LLMModelInfo(
         model_id="qwen/qwen3-32b",
@@ -97,15 +103,15 @@ LLM_MODELS: dict[str, LLMModelInfo] = {
         label="Qwen3 32B",
         param_billions=32.0,
     ),
-    "gemini-pro": LLMModelInfo(
-        model_id="google/gemini-3.1-pro-preview",
+    "gemini-flash-lite": LLMModelInfo(
+        model_id="google/gemini-3.1-flash-lite-preview",
         backend="openrouter",
-        label="Gemini 3.1 Pro",
+        label="Gemini 3.1 Flash Lite",
         param_billions=0,  # proprietary, size unknown
     ),
 }
 
-DEFAULT_LLM = "qwen3.5-9b"
+DEFAULT_LLM = "qwen3-4b"
 
 
 class Settings(BaseSettings):

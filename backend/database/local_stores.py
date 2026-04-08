@@ -96,6 +96,25 @@ class ChromaStore:
         int
             Number of chunks ingested.
         """
+        # Deduplicate by chunk_id, keeping the first occurrence.
+        # ChromaDB raises DuplicateIDError if the same ID appears twice in one batch.
+        seen: set = set()
+        unique_ids: list = []
+        unique_embs: list = []
+        unique_metas: list = []
+        for cid, emb, meta in zip(chunk_ids, embeddings, metadatas):
+            if cid not in seen:
+                seen.add(cid)
+                unique_ids.append(cid)
+                unique_embs.append(emb)
+                unique_metas.append(meta)
+        n_dupes = len(chunk_ids) - len(unique_ids)
+        if n_dupes:
+            logger.warning(f"Dropped {n_dupes} duplicate chunk IDs before ChromaDB upsert")
+        chunk_ids = unique_ids
+        embeddings = np.stack(unique_embs, axis=0)
+        metadatas = unique_metas
+
         n = len(chunk_ids)
         assert n == embeddings.shape[0] == len(metadatas)
 
@@ -242,14 +261,39 @@ class SQLiteStore:
         logger.info(f"SQLite FTS ingestion complete: {len(rows)} chunks")
         return len(rows)
 
+    def get_by_ids(self, chunk_ids: list[str]) -> dict[str, dict]:
+        """Fetch chunk text and metadata by chunk_id.
+
+        Returns a {chunk_id: {"text": ..., "page_title": ..., "section_heading": ...}} dict.
+        Only IDs that exist in the table are returned.
+        """
+        if not chunk_ids:
+            return {}
+        placeholders = ",".join("?" * len(chunk_ids))
+        cursor = self.conn.execute(
+            f"SELECT chunk_id, page_title, section_heading, text "
+            f"FROM chunks_fts WHERE chunk_id IN ({placeholders})",
+            chunk_ids,
+        )
+        return {row["chunk_id"]: dict(row) for row in cursor.fetchall()}
+
     def search(self, query: str, limit: int = 20) -> list[dict]:
         """Keyword search using FTS5 BM25 ranking.
 
         Returns list of dicts with keys: chunk_id, page_title,
         section_heading, rank (lower = better match).
         """
-        # Escape special FTS5 characters
-        safe_query = query.replace('"', '""')
+        # Strip FTS5 special characters that cause syntax errors
+        import re as _re
+        safe_query = _re.sub(r'[^\w\s]', ' ', query, flags=_re.UNICODE).strip()
+        if not safe_query:
+            return []
+        # Use OR between terms so natural-language queries return results.
+        # Filter out terms ≤ 2 chars (stop words like "a", "i", "in", "do").
+        terms = [t for t in safe_query.split() if len(t) > 2]
+        if not terms:
+            return []
+        fts_query = " OR ".join(terms)
         cursor = self.conn.execute(
             """
             SELECT chunk_id, page_title, section_heading, rank
@@ -258,7 +302,7 @@ class SQLiteStore:
             ORDER BY rank
             LIMIT ?
             """,
-            (safe_query, limit),
+            (fts_query, limit),
         )
         return [dict(row) for row in cursor.fetchall()]
 
