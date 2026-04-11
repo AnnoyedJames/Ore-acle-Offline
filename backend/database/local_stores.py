@@ -44,7 +44,7 @@ class ChromaStore:
         embedding_model: Optional[str] = None,
     ):
         self.db_dir = str(db_dir or settings.chroma_db_dir)
-        self._collection_name = self._make_collection_name(embedding_model)
+        self._collection_name = self._make_collection_name(embedding_model or settings.embedding_model)
         self._client: chromadb.ClientAPI | None = None
         self._collection: chromadb.Collection | None = None
 
@@ -148,16 +148,28 @@ class ChromaStore:
         self,
         query_embedding: np.ndarray,
         n_results: int = 20,
+        filter_page_types: Optional[list[str]] = None,
     ) -> list[dict]:
         """Semantic nearest-neighbour search.
 
+        Parameters
+        ----------
+        filter_page_types : list[str] | None
+            If provided, restricts results to chunks whose ``page_type``
+            metadata field matches one of the given values
+            (e.g. ``["mob", "item"]``).
+
         Returns list of dicts with keys: id, distance, metadata.
         """
-        results = self.collection.query(
+        where = {"page_type": {"$in": filter_page_types}} if filter_page_types else None
+        query_kwargs: dict = dict(
             query_embeddings=[query_embedding.tolist()],
             n_results=n_results,
             include=["metadatas", "distances"],
         )
+        if where:
+            query_kwargs["where"] = where
+        results = self.collection.query(**query_kwargs)
         out = []
         for i, cid in enumerate(results["ids"][0]):
             meta = results["metadatas"][0][i]

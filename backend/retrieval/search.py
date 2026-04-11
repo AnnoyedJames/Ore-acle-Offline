@@ -44,9 +44,14 @@ logger = logging.getLogger(__name__)
 class HybridSearch:
     """
     Hybrid search combining semantic (ChromaDB) and keyword (SQLite FTS5)
-    retrieval using Reciprocal Rank Fusion.
+    retrieval using Weighted Reciprocal Rank Fusion.
 
-    RRF formula: score(d) = Σ 1/(k + rank_i(d))
+    Weighted RRF formula:
+        score(d) = alpha * Σ 1/(k + rank_sem(d))
+                 + (1 - alpha) * Σ 1/(k + rank_kw(d))
+
+    Default: alpha=0.7 (semantic-heavy), k=20.
+    Both parameters are overridable per-instance for ablation sweeps.
     """
 
     def __init__(
@@ -54,15 +59,18 @@ class HybridSearch:
         chroma: Optional[ChromaStore] = None,
         sqlite: Optional[SQLiteStore] = None,
         embedder: Optional[EmbeddingGenerator] = None,
+        rrf_alpha: Optional[float] = None,
+        rrf_k: Optional[int] = None,
     ):
         self.chroma = chroma or ChromaStore()
         self.sqlite = sqlite or SQLiteStore()
         self._embedder = embedder
-        # Search parameters from settings
+        # Search parameters from settings (can be overridden per-instance)
         self.semantic_candidates = settings.retrieval_semantic_candidates
         self.keyword_candidates = settings.retrieval_keyword_candidates
         self.top_k = settings.retrieval_top_k
-        self.rrf_k = settings.rrf_k
+        self.rrf_k = rrf_k if rrf_k is not None else settings.rrf_k
+        self.rrf_alpha = rrf_alpha if rrf_alpha is not None else settings.rrf_alpha
 
     @property
     def embedder(self):
@@ -71,10 +79,11 @@ class HybridSearch:
             self._embedder = get_embedder()
         return self._embedder
 
-    def _semantic_search(self, query: str) -> list[dict]:
-        """Embed query and search ChromaDB."""
+    def _semantic_search(self, query: str, filter_types: Optional[list[str]] = None) -> list[dict]:
+        """Embed query and search ChromaDB, optionally filtered by page_type."""
         query_vec = self.embedder.embed_query(query)
-        results = self.chroma.query(query_vec, n_results=self.semantic_candidates)
+        results = self.chroma.query(query_vec, n_results=self.semantic_candidates,
+                                    filter_page_types=filter_types or [])
         return results
 
     def _keyword_search(self, query: str) -> list[dict]:
@@ -87,22 +96,27 @@ class HybridSearch:
         keyword_results: list[dict],
         chunks_lookup: dict[str, dict],
     ) -> list[SearchResult]:
-        """Merge results using Reciprocal Rank Fusion."""
+        """Merge results using Weighted Reciprocal Rank Fusion.
+
+        Semantic results are weighted by ``self.rrf_alpha``; keyword results
+        by ``1 - self.rrf_alpha``.  Setting alpha=1.0 reduces to pure semantic
+        reranking; 0.5 gives equal weight (standard RRF).
+        """
         k = self.rrf_k
         scores: dict[str, float] = {}
         semantic_scores: dict[str, float] = {}
         keyword_scores: dict[str, float] = {}
 
-        # Score semantic results
+        # Weighted RRF: semantic contributes alpha, keyword contributes (1 - alpha)
         for rank, result in enumerate(semantic_results):
             cid = result["id"]
-            scores[cid] = scores.get(cid, 0) + 1.0 / (k + rank + 1)
+            scores[cid] = scores.get(cid, 0) + self.rrf_alpha / (k + rank + 1)
             semantic_scores[cid] = 1.0 - result.get("distance", 0)
 
         # Score keyword results
         for rank, result in enumerate(keyword_results):
             cid = result["chunk_id"]
-            scores[cid] = scores.get(cid, 0) + 1.0 / (k + rank + 1)
+            scores[cid] = scores.get(cid, 0) + (1.0 - self.rrf_alpha) / (k + rank + 1)
             keyword_scores[cid] = abs(result.get("rank", 0))
 
         # Sort by RRF score descending
@@ -165,6 +179,8 @@ class HybridSearch:
                 except (json.JSONDecodeError, TypeError):
                     infobox = None
 
+            token_count = c.get("token_count") or len(text) // 4
+
             results.append(SearchResult(
                 chunk_id=cid,
                 page_title=c.get("page_title", ""),
@@ -173,7 +189,7 @@ class HybridSearch:
                 section_heading=c.get("section_heading", ""),
                 section_level=c.get("section_level", 2),
                 text=text,
-                token_count=c.get("token_count", 0),
+                token_count=token_count,
                 chunk_type=c.get("chunk_type", "section"),
                 page_type=c.get("page_type", "other"),
                 infobox=infobox,
@@ -202,7 +218,9 @@ class HybridSearch:
         mode : str
             ``"hybrid"`` (default), ``"semantic"``, or ``"keyword"``.
         filter_types : list[str] | None
-            Optional page_type filter (not yet implemented for local).
+            Optional list of ``page_type`` values to restrict results to
+            (e.g. ``["mob", "item", "biome"]``). Applied to the semantic
+            leg only; keyword results are post-filtered by page_type.
         chunks_lookup : dict | None
             Optional {chunk_id: chunk_dict} for text hydration.
             If not provided, relies on ChromaDB metadata.
@@ -213,17 +231,17 @@ class HybridSearch:
             Top-k results sorted by RRF score.
         """
         if mode == "semantic":
-            semantic_results = self._semantic_search(query)
+            semantic_results = self._semantic_search(query, filter_types)
             keyword_results = []
         elif mode == "keyword":
             semantic_results = []
             keyword_results = self._keyword_search(query)
         else:  # hybrid
-            semantic_results = self._semantic_search(query)
+            semantic_results = self._semantic_search(query, filter_types)
             keyword_results = self._keyword_search(query)
 
         logger.info(
-            f"Query: '{query[:50]}' → "
+            f"Query: '{query[:50]}' \u2192 "
             f"{len(semantic_results)} semantic, {len(keyword_results)} keyword"
         )
 
@@ -233,7 +251,11 @@ class HybridSearch:
             chunks_lookup or {},
         )
 
-        logger.info(f"RRF merged → {len(merged)} results")
+        # Post-filter keyword-only results by page_type if filter requested
+        if filter_types and mode in ("keyword", "hybrid"):
+            merged = [r for r in merged if r.page_type in filter_types]
+
+        logger.info(f"RRF merged \u2192 {len(merged)} results")
         for i, r in enumerate(merged[:3]):
             logger.info(
                 f"  #{i + 1}: {r.page_title} > {r.section_heading} "

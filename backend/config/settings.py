@@ -79,29 +79,23 @@ class LLMModelInfo:
 
 
 LLM_MODELS: dict[str, LLMModelInfo] = {
-    "qwen3-0.6b": LLMModelInfo(
-        model_id="qwen3:0.6b",
+    "gemma-4-e2b": LLMModelInfo(
+        model_id="gemma4:e2b",
         backend="ollama",
-        label="Qwen3 0.6B",
-        param_billions=0.6,
+        label="Gemma 4 e2B",
+        param_billions=2.0,
     ),
-    "qwen3-1.7b": LLMModelInfo(
-        model_id="qwen3:1.7b",
+    "gemma-4-e4b": LLMModelInfo(
+        model_id="gemma4:e4b",
         backend="ollama",
-        label="Qwen3 1.7B",
-        param_billions=1.7,
-    ),
-    "qwen3-4b": LLMModelInfo(
-        model_id="qwen3:4b",
-        backend="ollama",
-        label="Qwen3 4B",
+        label="Gemma 4 e4B",
         param_billions=4.0,
     ),
-    "qwen3-32b": LLMModelInfo(
-        model_id="qwen/qwen3-32b",
+    "gemma-4-31b": LLMModelInfo(
+        model_id="google/gemma-4-31b-it",
         backend="openrouter",
-        label="Qwen3 32B",
-        param_billions=32.0,
+        label="Gemma 4 31B",
+        param_billions=31.0,
     ),
     "gemini-flash-lite": LLMModelInfo(
         model_id="google/gemini-3.1-flash-lite-preview",
@@ -111,7 +105,7 @@ LLM_MODELS: dict[str, LLMModelInfo] = {
     ),
 }
 
-DEFAULT_LLM = "qwen3-4b"
+DEFAULT_LLM = "gemini-flash-lite"
 
 
 class Settings(BaseSettings):
@@ -172,10 +166,14 @@ class Settings(BaseSettings):
         default=20, description="Candidates from semantic search before RRF"     
     )
     retrieval_keyword_candidates: int = Field(
-        default=20, description="Candidates from keyword search before RRF"      
+        default=15, description="Candidates from keyword search before RRF"
     )
     rrf_k: int = Field(
-        default=60, description="RRF constant (higher = more weight to lower ranks)"
+        default=20, description="RRF constant (higher = more weight to lower ranks)"
+    )
+    rrf_alpha: float = Field(
+        default=0.8,
+        description="Semantic weight in weighted RRF; keyword weight = 1 - rrf_alpha",
     )
 
     # --- Paths ---

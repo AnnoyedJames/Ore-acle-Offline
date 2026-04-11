@@ -1,10 +1,10 @@
 """
-Answer Generator — produces cited answers using DeepSeek chat API.
+Answer Generator — produces cited answers using the configured LLM via OpenRouter or Ollama.
 
 Takes search results from HybridSearch and generates a natural language
 answer with inline [1][2] citations referencing specific chunks.
 
-Uses the OpenAI SDK with base_url pointed at DeepSeek's API.
+Uses the OpenAI SDK with base_url pointed at OpenRouter or a local Ollama instance.
 
 Usage:
     from retrieval.answer import AnswerGenerator
@@ -50,12 +50,14 @@ Remember: accuracy and proper citation are more important than completeness."""
 class GeneratorConfig:
     """Configuration for answer generation."""
     api_key: str = ""
-    base_url: str = "https://api.deepseek.com"
-    model: str = "deepseek-chat"
+    base_url: str = "https://openrouter.ai/api/v1"
+    model: str = "google/gemini-3.1-flash-lite-preview"
     max_tokens: int = 1024
     temperature: float = 0.3  # Low temp for factual accuracy
     # Maximum total context tokens for source chunks
     max_context_tokens: int = 3000
+    # Request extended thinking tokens (model-dependent; returns <think>…</think> in content)
+    thinking: bool = False
 
 
 @dataclass
@@ -70,7 +72,8 @@ class GeneratedAnswer:
 
 class AnswerGenerator:
     """
-    Generates cited answers from search results using DeepSeek.
+    Generates cited answers from search results using the configured LLM
+    (OpenRouter or local Ollama).
     """
 
     def __init__(self, config: Optional[GeneratorConfig] = None):
@@ -78,25 +81,25 @@ class AnswerGenerator:
         self.client = None
 
     def _init_client(self):
-        """Initialize OpenAI client pointed at DeepSeek."""
+        """Initialize OpenAI-compatible client pointed at OpenRouter or Ollama."""
         if self.client is not None:
             return
 
         api_key = self.config.api_key
         if not api_key:
-            from config.settings import settings
-            api_key = settings.deepseek_api_key
+            from backend.config.settings import settings
+            api_key = settings.openrouter_api_key
 
         if not api_key:
             raise ValueError(
-                "DeepSeek API key not configured. Set DEEPSEEK_API_KEY in .env"
+                "OpenRouter API key not configured. Set OPENROUTER_API_KEY in .env"
             )
 
         self.client = OpenAI(
             api_key=api_key,
             base_url=self.config.base_url,
         )
-        logger.info(f"DeepSeek client initialized (model: {self.config.model})")
+        logger.info(f"LLM client initialized (model: {self.config.model}, url: {self.config.base_url})")
 
     def _build_context(self, search_results: list) -> tuple[str, list[dict], list[dict]]:
         """
@@ -200,16 +203,32 @@ class AnswerGenerator:
         )
         messages.append({"role": "user", "content": user_message})
 
-        # Call DeepSeek
-        logger.info(f"Calling DeepSeek ({self.config.model})...")
-        response = self.client.chat.completions.create(
+        # Call LLM (OpenRouter or Ollama)
+        logger.info(f"Calling {self.config.model} (thinking={self.config.thinking})...")
+        call_kwargs: dict = dict(
             model=self.config.model,
             messages=messages,
             max_tokens=self.config.max_tokens,
             temperature=self.config.temperature,
         )
+        if self.config.thinking:
+            if "openrouter.ai" in self.config.base_url:
+                # OpenRouter unified reasoning API — works for Gemma 4, Gemini 3.x, etc.
+                # Maps to each provider's native thinking mechanism (thinkingLevel for Gemini,
+                # thinking_budget for Gemini, etc.).
+                call_kwargs["extra_body"] = {"reasoning": {"effort": "medium"}}
+            else:
+                # Ollama: pass the native think flag (supported for Gemma 4, QwQ, DeepSeek-R1)
+                call_kwargs["extra_body"] = {"think": True}
+        response = self.client.chat.completions.create(**call_kwargs)
 
         content = response.choices[0].message.content or ""
+        # OpenRouter returns thinking tokens in message.reasoning (separate from content).
+        # Prepend as <think>…</think> so the existing ThinkingBlock parser in the frontend
+        # picks them up transparently, regardless of which model produced them.
+        reasoning = getattr(response.choices[0].message, "reasoning", None)
+        if reasoning:
+            content = f"<think>{reasoning}</think>\n{content}"
         usage = {
             "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
             "completion_tokens": response.usage.completion_tokens if response.usage else 0,

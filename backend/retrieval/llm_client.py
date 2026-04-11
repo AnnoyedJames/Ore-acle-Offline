@@ -5,7 +5,7 @@ Both backends use the OpenAI-compatible chat completions format.
 
 Usage:
     from backend.retrieval.llm_client import get_llm_client
-    client = get_llm_client("qwen3-0.6b")
+    client = get_llm_client("gemini-flash-lite")
     answer = client.generate("What is a creeper?", context_chunks)
 """
 
@@ -17,18 +17,13 @@ from typing import Optional
 from openai import OpenAI
 
 from backend.config.settings import LLM_MODELS, LLMModelInfo
+from backend.retrieval.answer import SYSTEM_PROMPT as EVAL_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
 # Ollama default endpoint (OpenAI-compatible)
 OLLAMA_BASE_URL = "http://localhost:11434/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-
-EVAL_SYSTEM_PROMPT = (
-    "You are a Minecraft encyclopedia assistant. Answer the question using "
-    "ONLY the provided source chunks. Be concise and accurate. If the sources "
-    "don't contain enough information, say so."
-)
 
 
 @dataclass
@@ -98,8 +93,7 @@ class LLMClient:
 
         user_message = (
             f"Sources:\n{context}\n\n"
-            f"Question: {query}\n"
-            f"Answer the question using the sources above."
+            f"Question: {query}"
         )
 
         response = client.chat.completions.create(

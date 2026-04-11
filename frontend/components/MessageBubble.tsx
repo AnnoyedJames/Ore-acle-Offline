@@ -101,7 +101,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   }, [tooltip]);
 
   const renderContentWithCitations = (content: string) => {
-    // Extract <think>...</think> block (reasoning models like Qwen3)
+    // Extract <think>...</think> block from reasoning models (Gemma 4, Gemini, DeepSeek-R1, etc.)
     const thinkMatch = content.match(/^<think>([\s\S]*?)<\/think>\s*/i);
     const thinkText = thinkMatch ? thinkMatch[1] : null;
     const mainContent = thinkMatch ? content.slice(thinkMatch[0].length) : content;

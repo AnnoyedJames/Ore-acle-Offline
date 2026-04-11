@@ -544,6 +544,98 @@ def generate_qa_pairs(page: dict, interlinks: Dict[str, List[str]], model: str) 
     return results
 
 
+def generate_answer_for_question(
+    question: str,
+    page: dict,
+    interlinks: Dict[str, List[str]],
+    model: str,
+) -> Optional[dict]:
+    """Generate a full Q/A entry for a user-supplied question grounded in *page* text.
+
+    Uses the same two-pass pipeline as the auto-generated questions:
+      Pass 1 — LLM produces answer + relevant_links + difficulty from page text.
+      Pass 2 — semantic image retrieval + LLM image selection.
+    """
+    page_title = page.get("title", "")
+    timestamp = datetime.now(timezone.utc).isoformat()
+
+    full_text = assemble_page_text(page)
+    outgoing = interlinks.get(page_title, [])
+    ranked_outgoing = [
+        f"https://minecraft.wiki/w/{name.replace(' ', '_')}"
+        for name in outgoing[:50]
+    ]
+
+    prompt = f"""\
+Page: {page_title}
+Primary URL: {page.get("url", f"https://minecraft.wiki/w/{page_title.replace(' ', '_')}")}
+Outgoing Links: {json.dumps(ranked_outgoing)}
+
+--- FULL WIKI PAGE TEXT START ---
+{full_text}
+--- FULL WIKI PAGE TEXT END ---
+
+The user asked: "{question}"
+
+Answer this question using ONLY the page text above. Return a JSON object with keys:
+  "answer"         (string — 1–4 sentences, grounded in the text),
+  "difficulty"     ("easy", "medium", or "hard"),
+  "relevant_links" (array of up to 3 outgoing URLs most relevant to the answer).
+
+Return only the JSON object, no markdown fences."""
+
+    parsed_data = None
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+        )
+        raw = response.choices[0].message.content or ""
+        parsed_data = parse_json_from_text(raw)
+    except Exception as e:
+        logger.error(f"LLM answer generation failed for seeded question '{question[:60]}': {e}")
+        return None
+
+    if not parsed_data or "answer" not in parsed_data:
+        logger.warning(f"No valid answer returned for seeded question: '{question[:60]}'")
+        return None
+
+    answer = parsed_data.get("answer", "")
+    links = parsed_data.get("relevant_links", [])
+    safe_links = links[:3] if isinstance(links, list) else []
+
+    # Pass 2: image retrieval + selection
+    relevant_images: List[Dict[str, str]] = []
+    try:
+        candidates = retrieve_image_candidates(f"{question} {answer}", source_page=page_title)
+        if candidates:
+            relevant_images = select_images_with_llm(question, answer, candidates, model)
+            logger.info(f"  Image selection: {len(candidates)} candidates → {len(relevant_images)} selected")
+    except Exception as e:
+        logger.warning(f"Image retrieval/selection failed for seeded question: {e}")
+
+    return {
+        "question": question,
+        "answer": answer,
+        "difficulty": parsed_data.get("difficulty", "medium"),
+        "relevant_links": safe_links,
+        "relevant_images": relevant_images,
+        "source_page": page_title,
+        "generator_model": model,
+        "generated_at": timestamp,
+    }
+
+
+def find_page_by_title(metadata: List[dict], title: str) -> Optional[dict]:
+    """Case-insensitive lookup of a page by title."""
+    title_lower = title.lower()
+    for page in metadata:
+        if page.get("title", "").lower() == title_lower:
+            return page
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
@@ -563,6 +655,15 @@ def main():
     parser.add_argument(
         "--output", type=str, default="data/eval/questionset.json",
         help="Path to write the eval questionset JSON.",
+    )
+    parser.add_argument(
+        "--seed-questions", type=str, default=None,
+        help=(
+            "Path to a JSON file with custom seed questions. "
+            "Each entry must have 'question' and 'source_page'. "
+            "Answers and images are generated automatically using the same "
+            "two-pass pipeline as the auto-generated questions."
+        ),
     )
     args = parser.parse_args()
 
@@ -603,6 +704,50 @@ def main():
 
     # Only process pages we haven't already processed in the existing dataset
     processed_titles = {item.get("source_page") for item in dataset}
+
+    # -----------------------------------------------------------------------
+    # Seed questions: user-supplied questions that bypass page selection
+    # -----------------------------------------------------------------------
+    if args.seed_questions:
+        seed_path = Path(args.seed_questions)
+        if not seed_path.exists():
+            logger.error(f"Seed questions file not found: {seed_path}")
+        else:
+            with open(seed_path, "r", encoding="utf-8") as f:
+                seeds = json.load(f)
+            logger.info(f"Processing {len(seeds)} seed question(s) from {seed_path}")
+
+            seed_count = 0
+            for seed in seeds:
+                q = seed.get("question", "").strip()
+                source_title = seed.get("source_page", "").strip()
+                if not q or not source_title:
+                    logger.warning(f"Skipping invalid seed entry: {seed}")
+                    continue
+
+                # Check if this exact question is already in the dataset
+                existing_qs = {item.get("question", "").lower() for item in dataset}
+                if q.lower() in existing_qs:
+                    logger.info(f"Skipping seeded question (already present): '{q[:60]}'")
+                    continue
+
+                page = find_page_by_title(metadata, source_title)
+                if page is None:
+                    logger.warning(f"Source page not found in metadata: '{source_title}' — skipping.")
+                    continue
+
+                logger.info(f"Generating answer for seeded question: '{q[:80]}'")
+                entry = generate_answer_for_question(q, page, interlinks, model=args.model)
+                if entry:
+                    dataset.append(entry)
+                    seed_count += 1
+                    with open(args.output, "w", encoding="utf-8") as f:
+                        json.dump(dataset, f, indent=2, ensure_ascii=False)
+                    logger.info(f"  -> Done. ({seed_count} seed question(s) added so far)")
+                else:
+                    logger.warning(f"  -> Failed to generate entry for: '{q[:60]}'")
+
+            logger.info(f"Seed questions processed: {seed_count} added.")
 
     new_count = 0
     for i, page in enumerate(top_pages):

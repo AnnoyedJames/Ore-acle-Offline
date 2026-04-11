@@ -10,6 +10,7 @@ Usage:
     python -m embeddings.generator
 """
 
+import ijson
 import json
 import logging
 from dataclasses import dataclass, field
@@ -146,9 +147,11 @@ class EmbeddingGenerator:
         self._load_model()
 
         # Load chunks
-        logger.info(f"Loading chunks from {self.config.chunks_file}")
+        logger.info(f"Loading chunks from {self.config.chunks_file} via streams")
+        chunks = []
         with open(self.config.chunks_file, "r", encoding="utf-8") as f:
-            chunks = json.load(f)
+            for item in ijson.items(f, "item"):
+                chunks.append(item)
         logger.info(f"Total chunks: {len(chunks)}")
 
         chunk_ids = [c["chunk_id"] for c in chunks]

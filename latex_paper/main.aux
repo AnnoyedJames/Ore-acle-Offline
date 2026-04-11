@@ -1,0 +1,94 @@
+\relax 
+\bibstyle{acl_natbib}
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{minecraft2011}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Motivation}{1}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Problem Statement}{1}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}Our Solution: Ore-acle}{1}{subsection.1.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4}Contributions}{1}{subsection.1.4}\protected@file@percent }
+\citation{gao2023retrieval}
+\citation{yu2024evaluation}
+\citation{li2025enhancing}
+\citation{notebooklm2023}
+\citation{cormack2009reciprocal}
+\citation{kumar2025wikipedia}
+\citation{kshirsagar2024enhancing}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Retrieval-Augmented Generation}{2}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Multimodal RAG}{2}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Domain-Specific RAG}{2}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Minecraft as AI Testbed}{2}{subsection.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Citation in Language Models}{2}{subsection.2.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.6}Hybrid Search Architectures}{2}{subsection.2.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.7}Chunking Strategies}{2}{subsection.2.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}The Minecraft Wiki Domain}{2}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Domain Characteristics}{2}{subsection.3.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces A player-built structure from the 10th Anniversary Celebration map, illustrating the spatial and visual complexity characteristic of Minecraft environments. Answering questions about structures, biomes, or mechanics often requires images alongside text.}}{3}{figure.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:minecraft_complexity}{{1}{3}{A player-built structure from the 10th Anniversary Celebration map, illustrating the spatial and visual complexity characteristic of Minecraft environments. Answering questions about structures, biomes, or mechanics often requires images alongside text}{figure.caption.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces A crafting recipe grid (e.g., Daylight Detector), showing the precise ingredient requirements needed to construct items. A 1-cell shift or incorrect material variant produces an entirely different item or fails silently; this scale of structured visual-spatial knowledge is ill-suited to parametric LLM recall.}}{3}{figure.caption.2}\protected@file@percent }
+\newlabel{fig:crafting_recipe_book}{{2}{3}{A crafting recipe grid (e.g., Daylight Detector), showing the precise ingredient requirements needed to construct items. A 1-cell shift or incorrect material variant produces an entirely different item or fails silently; this scale of structured visual-spatial knowledge is ill-suited to parametric LLM recall}{figure.caption.2}{}}
+\citation{bge2024}
+\citation{nomic2024}
+\citation{wang2022text}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Query Complexity and Scale}{4}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Failure Modes of Existing Solutions}{4}{subsection.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}System Architecture}{4}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Offline Pipeline}{4}{subsection.4.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Ore-acle dataset composition (100 pages $\times $ 3 difficulty levels, plus 5 manually seeded adversarial narrative queries).}}{4}{table.caption.3}\protected@file@percent }
+\newlabel{tab:corpus}{{1}{4}{Ore-acle dataset composition (100 pages $\times $ 3 difficulty levels, plus 5 manually seeded adversarial narrative queries)}{table.caption.3}{}}
+\citation{gemini2023}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Retrieval Architecture}{5}{subsection.4.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Runtime hybrid search pipeline mapping dense and sparse retrievers.}}{5}{figure.caption.4}\protected@file@percent }
+\newlabel{fig:query_flow}{{3}{5}{Runtime hybrid search pipeline mapping dense and sparse retrievers}{figure.caption.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Generation with Citations}{5}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Experimental Setup}{5}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Dataset}{5}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Evaluation Framework}{6}{subsection.5.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Ablation study design}}{6}{table.caption.5}\protected@file@percent }
+\newlabel{tab:ablation}{{2}{6}{Ablation study design}{table.caption.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Metrics}{6}{subsection.5.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Evaluation metrics}}{6}{table.caption.6}\protected@file@percent }
+\newlabel{tab:metrics}{{3}{6}{Evaluation metrics}{table.caption.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Baselines}{6}{subsection.5.4}\protected@file@percent }
+\citation{gemma2024}
+\citation{gemini2023}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Human Evaluation}{7}{subsection.5.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Results and Ablation Studies}{7}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Search Mode Ablation}{7}{subsection.6.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Search mode comparison. Best scores in bold.}}{7}{table.caption.7}\protected@file@percent }
+\newlabel{tab:search-mode}{{4}{7}{Search mode comparison. Best scores in bold}{table.caption.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Embedding Model Ablation}{7}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Chunking Strategy Ablation}{7}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Generator Evaluation}{7}{subsection.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Qualitative Examples}{7}{subsection.6.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Generator evaluation. Latency excluded: Ollama (local) and OpenRouter (API) are not comparable on this axis. Best scores in bold.}}{8}{table.caption.8}\protected@file@percent }
+\newlabel{tab:generator}{{5}{8}{Generator evaluation. Latency excluded: Ollama (local) and OpenRouter (API) are not comparable on this axis. Best scores in bold}{table.caption.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Discussion}{8}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Keyword Parameter Tuning within Technical Domains}{8}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Design Implications for Wiki RAG}{8}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}The Role of Images in Spatial/Mechanical Understanding}{8}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}Limitations}{8}{subsection.7.4}\protected@file@percent }
+\citation{unsloth2024}
+\bibcite{cormack2009reciprocal}{{1}{2009}{{Cormack et al.}}{{}}}
+\bibcite{gao2023retrieval}{{2}{2023}{{Gao et al.}}{{}}}
+\bibcite{notebooklm2023}{{3}{2023}{{Google}}{{}}}
+\bibcite{kshirsagar2024enhancing}{{4}{2024}{{Kshirsagar}}{{}}}
+\bibcite{kumar2025wikipedia}{{5}{2025}{{Kumar}}{{}}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{9}{section.8}\protected@file@percent }
+\bibcite{li2025enhancing}{{6}{2025}{{Li et al.}}{{}}}
+\bibcite{yu2024evaluation}{{7}{2024}{{Yu et al.}}{{}}}
+\bibcite{bge2024}{{8}{2024}{{Chen et al.}}{{}}}
+\bibcite{gemini2023}{{9}{2023}{{Google}}{{}}}
+\bibcite{gemma2024}{{10}{2024}{{Google}}{{}}}
+\bibcite{nomic2024}{{11}{2024}{{Nussbaum et al.}}{{}}}
+\bibcite{wang2022text}{{12}{2022}{{Wang et al.}}{{}}}
+\bibcite{unsloth2024}{{13}{2024}{{Han et al.}}{{}}}
+\bibcite{minecraft2011}{{14}{2011}{{Mojang Studios}}{{}}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Full Hyperparameter Tables}{10}{appendix.A}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {B}Additional Qualitative Examples}{10}{appendix.B}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {C}Prompt Templates}{10}{appendix.C}\protected@file@percent }
+\gdef \@abspage@last{10}

@@ -4,10 +4,9 @@ import { RotateCcw } from 'lucide-react';
 import { LLMSettings, DEFAULT_LLM_SETTINGS } from '@/types';
 
 const MODELS = [
-  { key: 'qwen3-0.6b',       label: 'Qwen3 0.6B',            badge: 'Local' },
-  { key: 'qwen3-1.7b',       label: 'Qwen3 1.7B',            badge: 'Local' },
-  { key: 'qwen3-4b',         label: 'Qwen3 4B',              badge: 'Local' },
-  { key: 'qwen3-32b',        label: 'Qwen3 32B',             badge: 'API'   },
+  { key: 'gemma-4-e2b',      label: 'Gemma 4 e2B',           badge: 'Local' },
+  { key: 'gemma-4-e4b',      label: 'Gemma 4 e4B',           badge: 'Local' },
+  { key: 'gemma-4-31b',      label: 'Gemma 4 31B',           badge: 'API'   },
   { key: 'gemini-flash-lite', label: 'Gemini 3.1 Flash Lite', badge: 'API'  },
 ];
 
@@ -161,7 +160,7 @@ export default function LLMSettingsPanel({ settings, onChange }: LLMSettingsPane
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Thinking Mode</p>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Show reasoning process (Qwen3)</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Show reasoning process (Gemma 4 / Gemini)</p>
         </div>
         <button
           type="button"

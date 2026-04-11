@@ -10,7 +10,7 @@ Phase 1  RETRIEVER  (no LLM)
 
 Phase 2  GENERATOR  (best retrieval config from Phase 1)
   Runs the winning retrieval pipeline, then sends retrieved chunks to
-  each of the 5 LLMs.  Measures answer quality.
+  each of the 4 LLMs.  Measures answer quality.
     --phase generator
   Metrics: Token-level F1, ROUGE-L, human spot-check (manual)
 
@@ -35,6 +35,7 @@ import logging
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 load_dotenv()  # Load .env before any backend imports
@@ -69,6 +70,7 @@ DEFAULT_CHUNKING = "section_aware"
 # Axes
 EMBEDDING_AXIS_MODELS = list(EMBEDDING_MODELS.keys())
 SEARCH_AXIS_MODES = ["semantic", "keyword", "hybrid"]
+RRF_ALPHA_SWEEP = [0.5, 0.6, 0.7, 0.8, 0.9]
 CHUNKING_AXIS_STRATEGIES = ["section_aware", "langchain"]
 
 # Per-chunking-strategy metadata: (chunks_file, sqlite_db_path)
@@ -196,7 +198,7 @@ def compute_image_recall(
 # ---------------------------------------------------------------------------
 
 def _strip_thinking(text: str) -> str:
-    """Remove <think>...</think> blocks emitted by reasoning models (e.g. Qwen3)."""
+    """Remove <think>...</think> blocks emitted by reasoning models (e.g. Gemma 4)."""
     import re
     return re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.IGNORECASE).strip()
 
@@ -264,6 +266,8 @@ def _build_search(
     embedding_model: str,
     search_mode: str,
     chunking: str,
+    rrf_alpha: float | None = None,
+    rrf_k: int | None = None,
 ) -> HybridSearch:
     """Construct a HybridSearch wired to the right stores/embedder.
 
@@ -285,7 +289,30 @@ def _build_search(
         _sqlite_cache[sqlite_key] = SQLiteStore(db_path=meta["sqlite_path"])
     sqlite = _sqlite_cache[sqlite_key]
 
-    return HybridSearch(chroma=chroma, sqlite=sqlite, embedder=embedder)
+    return HybridSearch(chroma=chroma, sqlite=sqlite, embedder=embedder,
+                        rrf_alpha=rrf_alpha, rrf_k=rrf_k)
+
+
+def _citation_faithfulness(answer: str, results: list, source_page: str) -> Optional[float]:
+    """Return 1.0 if the model cited a source from the expected page, 0.0 if it
+    didn't, or None if the expected page was not retrieved (unevaluable).
+
+    Detection is heuristic: looks for ``[Source N]`` or ``[N]`` patterns in the
+    answer and checks whether source N corresponds to the expected page.
+    """
+    import re
+    # Find which 1-indexed source slots belong to the expected page
+    source_page_lower = (source_page or "").lower()
+    matching = {
+        i + 1
+        for i, res in enumerate(results[:5])
+        if source_page_lower and source_page_lower in getattr(res, "page_title", "").lower()
+    }
+    if not matching:
+        return None  # can't assess — page wasn't retrieved
+
+    cited = {int(m) for m in re.findall(r"\[(?:Source\s+)?(\d+)\]", answer)}
+    return 1.0 if matching & cited else 0.0
 
 
 def _build_context_string(results: list, max_sources: int = 5) -> str:
@@ -342,6 +369,21 @@ def run_retriever_axis(
             {"embedding": DEFAULT_EMBEDDING_MODEL, "search": DEFAULT_SEARCH_MODE, "chunking": m}
             for m in CHUNKING_AXIS_STRATEGIES
         ]
+    elif axis == "rrf":
+        # Sweep semantic weight alpha at k=20; include pure modes as baselines
+        configs = [
+            {"embedding": DEFAULT_EMBEDDING_MODEL, "search": "semantic",
+             "chunking": DEFAULT_CHUNKING, "rrf_alpha": None, "rrf_k": None,
+             "label": f"{DEFAULT_EMBEDDING_MODEL}|semantic|{DEFAULT_CHUNKING}"},
+            {"embedding": DEFAULT_EMBEDDING_MODEL, "search": "keyword",
+             "chunking": DEFAULT_CHUNKING, "rrf_alpha": None, "rrf_k": None,
+             "label": f"{DEFAULT_EMBEDDING_MODEL}|keyword|{DEFAULT_CHUNKING}"},
+        ] + [
+            {"embedding": DEFAULT_EMBEDDING_MODEL, "search": "hybrid",
+             "chunking": DEFAULT_CHUNKING, "rrf_alpha": a, "rrf_k": 20,
+             "label": f"hybrid|α={a:.2f}|k=20"}
+            for a in RRF_ALPHA_SWEEP
+        ]
     else:
         raise ValueError(f"Unknown axis: {axis}")
 
@@ -351,13 +393,15 @@ def run_retriever_axis(
     _lookup_cache: dict[str, dict] = {}
 
     for cfg in configs:
-        label = f"{cfg['embedding']}|{cfg['search']}|{cfg['chunking']}"
+        label = cfg.get("label", f"{cfg['embedding']}|{cfg['search']}|{cfg['chunking']}")
         logger.info(f"\n{'='*60}\nConfig: {label}\n{'='*60}")
 
         search_engine = _build_search(
             embedding_model=cfg["embedding"],
             search_mode=cfg["search"],
             chunking=cfg["chunking"],
+            rrf_alpha=cfg.get("rrf_alpha"),
+            rrf_k=cfg.get("rrf_k"),
         )
 
         # Use the right chunks_lookup for this chunking strategy
@@ -441,10 +485,8 @@ def run_generator(
 
     model_keys = model_keys or list(LLM_MODELS.keys())
 
-    # If chunks_lookup is empty or we can build a better one for this chunking strategy, do it
-    meta = CHUNKING_META.get(chunking, CHUNKING_META["section_aware"])
-    if not chunks_lookup:
-        chunks_lookup = _load_chunks_lookup(meta["chunks_file"])
+    # Text is hydrated directly from ChromaDB/SQLite in HybridSearch results;
+    # chunks_lookup is not required for the generator phase.
 
     search_engine = _build_search(
         embedding_model=embedding,
@@ -462,12 +504,23 @@ def run_generator(
         ctx = _build_context_string(results)
         retrieved.append((results, ctx))
 
+    run_config = {
+        "embedding": embedding,
+        "search_mode": search_mode,
+        "chunking": chunking,
+        "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+
     all_results: dict[str, list[dict]] = {}
+    _SAVE_EVERY = 25  # flush to disk every N questions
 
     for mkey in model_keys:
         info = LLM_MODELS[mkey]
         logger.info(f"\n{'='*60}\nLLM: {info.label} ({info.backend})\n{'='*60}")
         client = get_llm_client(mkey)
+
+        # Rolling checkpoint path — one file per model, overwritten every _SAVE_EVERY questions
+        ckpt_path = RESULTS_DIR / f"generator_ckpt_{mkey}.json"
 
         per_q: list[dict] = []
         for idx, q in enumerate(tqdm(questions, desc=info.label, leave=False)):
@@ -482,6 +535,7 @@ def run_generator(
                 answer = _strip_thinking(resp.content)
                 f1 = compute_token_f1(answer, golden)
                 rouge_l = compute_rouge_l(answer, golden)
+                cit_f = _citation_faithfulness(answer, results, q.get("source_page", ""))
 
                 per_q.append({
                     "question": q["question"],
@@ -491,6 +545,7 @@ def run_generator(
                     "model_answer": answer,
                     "token_f1": round(f1, 4),
                     "rouge_l": round(rouge_l, 4),
+                    "citation_faithfulness": cit_f,
                     "prompt_tokens": resp.prompt_tokens,
                     "completion_tokens": resp.completion_tokens,
                     "latency": round(latency, 4),
@@ -505,18 +560,52 @@ def run_generator(
                     "model_answer": f"[ERROR: {e}]",
                     "token_f1": 0.0,
                     "rouge_l": 0.0,
+                    "citation_faithfulness": None,
                     "prompt_tokens": 0,
                     "completion_tokens": 0,
                     "latency": 0.0,
                 })
 
+            # Rolling save — overwrite every _SAVE_EVERY questions
+            if (idx + 1) % _SAVE_EVERY == 0:
+                with open(ckpt_path, "w", encoding="utf-8") as _f:
+                    json.dump({"run_config": run_config, "model": info.label,
+                               "model_key": mkey, "backend": info.backend,
+                               "n_complete": idx + 1, "answers": per_q}, _f,
+                              indent=2, ensure_ascii=False)
+
+        # --- BERTScore (batch, post-inference) ---
+        try:
+            from bert_score import score as _bert_score
+            candidates = [r["model_answer"] for r in per_q]
+            references = [r["golden_answer"] for r in per_q]
+            logger.info(f"Computing BERTScore for {info.label} ({len(candidates)} answers)...")
+            _, _, bert_f1 = _bert_score(candidates, references, lang="en", verbose=False)
+            for r, bf1 in zip(per_q, bert_f1.tolist()):
+                r["bert_score_f1"] = round(bf1, 4)
+        except Exception as e:
+            logger.warning(f"BERTScore failed for {info.label}: {e} — skipping")
+            for r in per_q:
+                r["bert_score_f1"] = None
+
         all_results[mkey] = per_q
+
+        # Final per-model save (with BERTScores, full run config)
+        model_out_path = RESULTS_DIR / f"generator_{mkey}_{time.strftime('%Y%m%d_%H%M%S')}.json"
+        with open(model_out_path, "w", encoding="utf-8") as f:
+            json.dump({"run_config": run_config, "model": info.label,
+                       "model_key": mkey, "backend": info.backend,
+                       "n_complete": len(per_q), "answers": per_q}, f,
+                      indent=2, ensure_ascii=False)
+        logger.info(f"Model results saved: {model_out_path}")
 
     # Aggregate
     summary_rows = []
     for mkey, per_q in all_results.items():
         info = LLM_MODELS[mkey]
         n = len(per_q)
+        bert_scores = [r["bert_score_f1"] for r in per_q if r.get("bert_score_f1") is not None]
+        cit_scores = [r["citation_faithfulness"] for r in per_q if r.get("citation_faithfulness") is not None]
         agg = {
             "model": info.label,
             "model_key": mkey,
@@ -524,14 +613,20 @@ def run_generator(
             "n": n,
             "avg_f1": sum(r["token_f1"] for r in per_q) / n,
             "avg_rouge_l": sum(r["rouge_l"] for r in per_q) / n,
+            "avg_bert_score_f1": sum(bert_scores) / len(bert_scores) if bert_scores else None,
+            "citation_faithfulness": sum(cit_scores) / len(cit_scores) if cit_scores else None,
+            "citation_faithfulness_n": len(cit_scores),
             "avg_latency": sum(r["latency"] for r in per_q) / n,
             "total_prompt_tokens": sum(r["prompt_tokens"] for r in per_q),
             "total_completion_tokens": sum(r["completion_tokens"] for r in per_q),
         }
         summary_rows.append(agg)
+        cit_str = f"{agg['citation_faithfulness']:.3f} ({agg['citation_faithfulness_n']})" if agg["citation_faithfulness"] is not None else "N/A"
+        bert_str = f"{agg['avg_bert_score_f1']:.3f}" if agg["avg_bert_score_f1"] is not None else "N/A"
         logger.info(
             f"  {info.label}: F1={agg['avg_f1']:.3f}  ROUGE-L={agg['avg_rouge_l']:.3f}  "
-            f"Latency={agg['avg_latency']:.2f}s"
+            f"BERTScore={bert_str}  "
+            f"CitF={cit_str}  Latency={agg['avg_latency']:.2f}s"
         )
 
     return {
@@ -581,13 +676,14 @@ def _write_generator_report(data: dict, out_dir: Path, ts: str) -> None:
         "# Generator Evaluation",
         f"_Retrieval config: {cfg['embedding']} | {cfg['search_mode']} | {cfg['chunking']}_",
         f"_Generated: {ts}_\n",
-        "| Model | Backend | Avg F1 | Avg ROUGE-L | Avg Latency | Prompt Tok | Compl Tok |",
-        "|-------|---------|--------|-------------|-------------|------------|-----------|",
+        "| Model | Backend | Avg F1 | Avg ROUGE-L | Avg BERTScore | Avg Latency | Prompt Tok | Compl Tok |",
+        "|-------|---------|--------|-------------|---------------|-------------|------------|-----------||",
     ]
     for r in rows:
+        bs = f"{r['avg_bert_score_f1']:.3f}" if r.get("avg_bert_score_f1") is not None else "N/A"
         lines.append(
             f"| {r['model']} | {r['backend']} | {r['avg_f1']:.3f} | "
-            f"{r['avg_rouge_l']:.3f} | {r['avg_latency']:.2f}s | "
+            f"{r['avg_rouge_l']:.3f} | {bs} | {r['avg_latency']:.2f}s | "
             f"{r['total_prompt_tokens']:,} | {r['total_completion_tokens']:,} |"
         )
 
@@ -612,7 +708,7 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--axis",
-        choices=["embedding", "search", "chunking"],
+        choices=["embedding", "search", "chunking", "rrf"],
         default=None,
         help="Retriever axis to vary (required for --phase retriever)",
     )

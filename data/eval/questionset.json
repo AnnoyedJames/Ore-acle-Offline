@@ -7938,5 +7938,152 @@
     "source_page": "Gold Ingot",
     "generator_model": "google/gemini-3.1-flash-lite-preview",
     "generated_at": "2026-04-07T17:15:09.064610+00:00"
+  },
+  {
+    "question": "who is steve?",
+    "answer": "Steve is one of the nine default skins available for players in Minecraft and was the first to be introduced. Originally created for an unreleased game called Zombie Town, the character is designed to be a gender-neutral human being. Steve is frequently featured in official Minecraft media, including cinematics, books, and various game collaborations.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Minecraft",
+      "https://minecraft.wiki/w/Player",
+      "https://minecraft.wiki/w/Zombie_Town"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Steve_%28classic%29_JE6.png",
+        "local_filename": "Steve_(classic)_JE6.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Steve_BE3.png",
+        "local_filename": "Steve_BE3.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Steve_%28slim%29_JE2.png",
+        "local_filename": "Steve_(slim)_JE2.webp"
+      }
+    ],
+    "source_page": "Steve",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-08T08:58:16.605066+00:00"
+  },
+  {
+    "question": "what is the best possible gearset i can have in minecraft?",
+    "answer": "The best possible gearset consists of Netherite armor and tools, which are more powerful and durable than diamond gear. You can obtain this gear by upgrading diamond items at a smithing table using a netherite ingot and a netherite upgrade. The full set includes a netherite helmet, chestplate, leggings, boots, sword, pickaxe, axe, shovel, and hoe.",
+    "difficulty": "medium",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Smithing",
+      "https://minecraft.wiki/w/Netherite_Ingot",
+      "https://minecraft.wiki/w/Netherite_Upgrade"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/AllNetherite.jpg",
+        "local_filename": "AllNetherite.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/All_Netherite_things.png",
+        "local_filename": "All_Netherite_things.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Steve_in_netherite_armor.png",
+        "local_filename": "Steve_in_netherite_armor.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Alex_in_netherite_armor.png",
+        "local_filename": "Alex_in_netherite_armor.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Armor_Trims_On_Netherite_Armors.png",
+        "local_filename": "Armor_Trims_On_Netherite_Armors.webp"
+      }
+    ],
+    "source_page": "Netherite",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-08T08:58:27.691810+00:00"
+  },
+  {
+    "question": "what is minecraft about?",
+    "answer": "Minecraft is a 3D sandbox game that allows players to explore, interact with, and modify a dynamically-generated world made of one-cubic-meter-sized blocks. Players can gather resources to build structures, craft tools, fight hostile mobs, and engage in various activities on single-player maps or multiplayer servers. The game offers an open-ended experience where players can create their own adventures, with an optional goal of traveling to the End to defeat the ender dragon.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Minecraft",
+      "https://minecraft.wiki/w/Block",
+      "https://minecraft.wiki/w/Crafting"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Survival.png",
+        "local_filename": "Survival.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Creeper_in_forest.png",
+        "local_filename": "Creeper_in_forest.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/The_Nether.png",
+        "local_filename": "The_Nether.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/The_End.png",
+        "local_filename": "The_End.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Players_fighting.png",
+        "local_filename": "Players_fighting.webp"
+      }
+    ],
+    "source_page": "Minecraft",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-08T08:58:39.368439+00:00"
+  },
+  {
+    "question": "how do i keep creepers away?",
+    "answer": "You can keep creepers away by using ocelots or cats, which cause creepers to flee within a 6-block radius. Additionally, wearing a creeper head reduces their detection range by 50%. You can also prevent them from spawning by ensuring light levels are above 0 on solid blocks in the Overworld.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Creeper"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Creeper_JE3_BE1.png",
+        "local_filename": "Creeper_JE3_BE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/CreeprClose.png",
+        "local_filename": "CreeprClose.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Efe_flees.jpg",
+        "local_filename": "Efe_flees.webp"
+      }
+    ],
+    "source_page": "Creeper",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-08T08:58:43.865927+00:00"
+  },
+  {
+    "question": "what is the chance that a blaze drops a rod?",
+    "answer": "In Java Edition, a blaze has a 50% default chance to drop a blaze rod when killed. This probability increases with the Looting enchantment, reaching 75% for Looting I, 87.5% for Looting II, and 91.67% for Looting III. In Bedrock Edition, the default drop chance is also 50%, but the probability scales differently with Looting levels.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Blaze_Rod"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Blaze_BE2.png",
+        "local_filename": "Blaze_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Blaze_attack.jpg",
+        "local_filename": "Blaze_attack.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Blaze_Rod_JE1_BE1.png",
+        "local_filename": "Blaze_Rod_JE1_BE1.webp"
+      }
+    ],
+    "source_page": "Blaze",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-08T08:58:49.724795+00:00"
   }
 ]

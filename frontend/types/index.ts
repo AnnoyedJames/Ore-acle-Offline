@@ -39,10 +39,10 @@ export interface LLMSettings {
 }
 
 export const DEFAULT_LLM_SETTINGS: LLMSettings = {
-  model: 'qwen3-4b',
-  temperature: 0.7,
-  top_p: 0.9,
-  max_tokens: 512,
+  model: 'gemini-flash-lite',
+  temperature: 0.3,
+  top_p: 0.95,
+  max_tokens: 1024,
   search_mode: 'hybrid',
   thinking: true,
 };

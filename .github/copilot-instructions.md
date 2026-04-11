@@ -76,22 +76,14 @@ All settings are local-first.
 ### Testing & Evaluation
 - **Generation**: `scripts/eval/generate_questionset.py` creates the Golden Test Set (Gemini Flash Lite via OpenRouter, two-pass image selection with ijson streaming).
 - **Benchmarking**: `scripts/eval/run_eval.py` — two-phase ablation framework.
-  - Phase 1 RETRIEVER: `--axis search` (semantic/keyword/hybrid), `--axis embedding`, `--axis chunking`
-  - Phase 2 GENERATOR: `--phase generator` — tests all 5 LLMs
-- **Metrics**: Recall@5, Recall@10, Precision@10, MRR, Image Recall, Token F1, ROUGE-L.
+  - Phase 1 RETRIEVER: `--axis search` (semantic/keyword/hybrid), `--axis rrf` (alpha sweep), `--axis embedding`, `--axis chunking`
+  - Phase 2 GENERATOR: `--phase generator` — tests 4 LLMs (Gemma 4 e2B/e4B via Ollama, Gemma 4 31B + Gemini Flash Lite via OpenRouter)
+- **Metrics**: Recall@5, Recall@10, Precision@10, MRR, Image Recall, Token F1, ROUGE-L, BERTScore F1.
 - **Results dir**: `data/eval/results/`
 
-### Ablation Results (April 2026)
-**Search axis** (300-pair questionset, baai/bge-m3, section_aware chunking):
-| Mode | MRR | R@5 | Img Recall | Latency |
-|------|-----|-----|------------|---------|
-| Semantic | **0.620** | 0.444 | **0.126** | 0.807s |
-| Keyword (OR) | 0.428 | 0.360 | 0.061 | **0.067s** |
-| Hybrid | 0.575 | 0.445 | 0.106 | 0.865s |
 
-**Finding**: Hybrid underperforms pure semantic. The keyword OR-expansion introduces noisy RRF matches that dilute high-confidence semantic results. **Winning config: `semantic` mode.**
-
-**Remaining eval axes**: Embedding axis (needs 3 new ingests), Chunking axis (needs langchain ingest), Generator eval (5 LLMs, uses semantic mode).
+**Narrative**: Hybrid search (weighted RRF, α=0.80) is the chosen retrieval mode. α=0.80 wins on all coverage metrics (R@10, P@10, ImgRecall) vs semantic baseline; MRR gap is -1.6pp (top-1 precision). Hybrid is preferred for RAG because context coverage > top-1 rank.
+**Remaining eval axes**: Embedding axis (nomic/e5-large/gemini ingests pending), Chunking axis (needs langchain ingest), Generator eval (4 LLMs: Gemma 4 e2B/e4B/31B + Gemini Flash Lite, uses hybrid mode).
 
 ## Code Style
 - **Python**: Typed (`mypy` compliant), `black` formatted.
@@ -110,10 +102,13 @@ Same constraints as original:
 - [x] Local Vector DB (ChromaDB) — 121,080 chunks, `chunks_baai_bge_m3`
 - [x] Local Keyword DB (SQLite FTS5) — 121,618 rows, OR-query semantics
 - [x] Evaluation Framework — `run_eval.py` two-phase ablation
-- [x] Gold Questionset — 300 pairs at `data/eval/questionset.json`
-- [x] Search axis eval — Semantic wins (MRR=0.620)
-- [ ] FastAPI Backend
-- [ ] Embedding axis eval (needs nomic/e5-large/gemini-embedding ingests)
+- [x] Gold Questionset — 305 pairs at `data/eval/questionset.json`
+- [x] Search axis eval — Semantic MRR=0.620 baseline; hybrid α=0.80 wins R@10/P@10/ImgRecall
+- [x] Weighted RRF — `rrf_alpha=0.80`, `rrf_k=20` (locked after sweep; configurable per-instance)
+- [x] FastAPI Backend
+- [x] Paper Outline Structure (`latex_paper/main.tex`)
+- [x] RRF alpha sweep — α=0.80 optimal; hybrid is preferred RAG mode
+- [ ] Embedding axis eval (ingests for nomic/e5-large/gemini pending)
 - [ ] Chunking axis eval (needs langchain ingest)
-- [ ] Generator eval (5 LLMs, `--phase generator --search-mode semantic`)
+- [ ] Generator eval (4 LLMs: Gemma 4 e2B/e4B/31B + Gemini Flash Lite, `--phase generator --search-mode hybrid`)
 

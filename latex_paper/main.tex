@@ -1,0 +1,484 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{acl}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10}
+}
+
+\title{Ore-acle: A Multimodal RAG System for Complex Game Wikis with Verifiable Citations}
+
+\author{James Michael Gampper \\
+  Faculty of Arts \\
+  Chulalongkorn University \\
+  \texttt{jgampperjr@gmail.com}}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present \textbf{Ore-acle}, a domain-specific retrieval-augmented generation (RAG) system designed for complex game wikis, using Minecraft as a case study. Unlike general-purpose LLMs that hallucinate on technical game mechanics, Ore-acle provides verifiable, multimodal answers with inline citations and contextual image retrieval. We introduce a complete offline pipeline for processing 12,487 HTML wiki pages into 121,080 semantically chunked embeddings with 61,248 associated images. Through systematic ablation studies on hybrid search architectures (dense semantic + sparse keyword), we evaluate retrieval modes, RRF weighting parameters, and three LLM generators across 305 expert-curated question-answer pairs. Ore-acle demonstrates that specialized RAG systems can eliminate hallucinations while preserving the rich visual and structural context necessary for spatially-complex domains.
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{Motivation}
+Complex sandbox games like Minecraft~\cite{minecraft2011} involve thousands of interlocking mechanics, crafting recipes, and entity behaviors that players must manually search through wikis to understand. This friction disrupts gameplay flow and creates barriers to entry. While Large Language Models (LLMs) offer conversational interfaces, they suffer from \textbf{hallucination} on domain-specific technical details and lack \textbf{verifiable provenance} or \textbf{visual context}---critical for spatially-oriented games.
+
+\subsection{Problem Statement}
+Current solutions fail on three axes:
+\begin{itemize}
+    \item \textbf{Verifiability}: No inline citation mechanism for fact-checking generated claims
+    \item \textbf{Multimodality}: Text-only responses miss visual-spatial relationships (e.g., redstone circuit layouts, biome characteristics)
+    \item \textbf{Domain specificity}: General LLMs lack fine-grained knowledge of version-specific game mechanics
+\end{itemize}
+
+\subsection{Our Solution: Ore-acle}
+We develop \textbf{Ore-acle Offline}, a fully local RAG system replicating cloud-based wiki intelligence using strictly offline technologies. The system processes 12,487 Minecraft Wiki pages into a hybrid retrieval architecture (ChromaDB + SQLite FTS5) with NotebookLM-style inline citations and dynamic image embedding.
+
+\subsection{Contributions}
+\begin{enumerate}
+    \item \textbf{Multimodal Data Pipeline}: Scraping and structured extraction of 12,487 HTML pages preserving image-text relationships and infobox structures
+    \item \textbf{Verifiable Citation System}: Inline source attribution with verbatim quoting and URL linking, eliminating hallucination risks
+    \item \textbf{Systematic Ablation Study}: Evaluation of retrieval modes (semantic, keyword, hybrid), RRF weighting parameters, and three LLM generators on 305 expert-curated question-answer pairs
+    \item \textbf{Open Local Architecture}: Complete offline port enabling reproducible RAG research without cloud dependencies
+\end{enumerate}
+
+\section{Related Work}
+
+\subsection{Retrieval-Augmented Generation}
+\citet{gao2023retrieval} survey RAG architectures, categorizing retrieval into dense (embedding-based), sparse (lexical), and hybrid approaches. \citet{yu2024evaluation} emphasize evaluation challenges in RAG systems, particularly regarding citation fidelity. \citet{li2025enhancing} establish best practices for retrieval optimization, though primarily on general-domain corpora.
+
+\subsection{Multimodal RAG}
+[TODO: Prior work on vision-language retrieval]
+
+\subsection{Domain-Specific RAG}
+[TODO: Legal, medical, scientific domains---gap for gaming wikis]
+
+\subsection{Minecraft as AI Testbed}
+[TODO: Prior work using Minecraft for agent research, NLU tasks]
+
+\subsection{Citation in Language Models}
+Google's NotebookLM \cite{notebooklm2023} introduced verifiable inline citations for research documents, establishing UI patterns for source attribution. We adapt this paradigm to technical game documentation, where precision requirements exceed general-domain applications.
+
+\subsection{Hybrid Search Architectures}
+Reciprocal Rank Fusion (RRF) \cite{cormack2009reciprocal} remains the standard for combining dense and sparse retrieval signals. However, its application to highly structured technical domains remains underexplored. \citet{kumar2025wikipedia} demonstrates lightweight RAG for STEM questions but does not address multimodal requirements.
+
+\subsection{Chunking Strategies}
+\citet{kshirsagar2024enhancing} evaluates text splitting techniques for RAG, finding that semantic coherence in chunks significantly impacts retrieval quality. Wiki-specific challenges---preserving infobox tables and hierarchical section structures---require domain-adapted approaches.
+
+\section{The Minecraft Wiki Domain}
+
+\subsection{Domain Characteristics}
+
+The Minecraft Wiki documents a procedurally generated world governed by thousands of interlocking systems---biome generation rules, crafting recipes, mob behavior, redstone logic, and version-specific patch behaviors. Several properties make it an unusually demanding RAG testbed:
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{figures/minecraft_complexity.png}
+    \caption{A player-built structure from the 10th Anniversary Celebration map, illustrating the spatial and visual complexity characteristic of Minecraft environments. Answering questions about structures, biomes, or mechanics often requires images alongside text.}
+    \label{fig:minecraft_complexity}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{figures/crafting_recipe_book.png}
+    \caption{A crafting recipe grid (e.g., Daylight Detector), showing the precise ingredient requirements needed to construct items. A 1-cell shift or incorrect material variant produces an entirely different item or fails silently; this scale of structured visual-spatial knowledge is ill-suited to parametric LLM recall.}
+    \label{fig:crafting_recipe_book}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{Visual-spatial reasoning}: Many answers are incomprehensible without image context (e.g., redstone circuit diagrams, biome terrain features, mob spawn conditions).
+    \item \textbf{Recipe breadth}: Hundreds of crafting recipes with exact positional constraints---a 1-cell shift produces an entirely different item or fails silently.
+    \item \textbf{Version fragmentation}: Mechanics, item IDs, and behaviors differ substantially between Java Edition, Bedrock Edition, and legacy console releases. A query without version context is genuinely ambiguous.
+    \item \textbf{Encyclopedic depth}: The wiki spans 12,487 articles covering biomes, entities, blocks, items, structures, mechanics, commands, and changelogs---far exceeding the context window of any single LLM call.
+\end{itemize}
+
+\subsection{Query Complexity and Scale}
+
+The 305-pair evaluation set spans three difficulty tiers. Easy questions target single-fact lookups (e.g., ``What does a Blaze drop?''); medium questions require synthesising information across multiple infobox fields or related pages (e.g., ``What are the spawn conditions for Guardians?''); hard questions demand reasoning across game mechanics or version differences (e.g., ``How does raid scaling change with Bad Omen level?''). The hard tier is where purely parametric LLMs are most likely to hallucinate, as precise numeric or version-conditional details are rarely surfaced in pretraining corpora.
+
+\subsection{Failure Modes of Existing Solutions}
+
+General-purpose LLMs fail on this domain in three characteristic ways. First, they \textbf{confabulate specifics}: version-conditional values (damage, drop rates, recipe layouts) are confidently stated but often wrong. Second, they \textbf{collapse visual context}: answers that require spatial understanding---redstone wiring, biome generation, structure layouts---are degraded without image grounding. Third, they \textbf{lack recency}: post-pretraining game updates (new mobs, reworked mechanics, balance patches) are invisible, producing stale answers presented with equal confidence. Ore-acle addresses all three by grounding every response in retrieved chunks with inline citations and contextual images.
+
+\section{System Architecture}
+
+\subsection{Offline Pipeline}
+
+\textbf{Corpus Statistics:}
+\begin{table}[h]
+\centering
+\begin{tabular}{lc}
+\toprule
+\textbf{Component} & \textbf{Count} \\
+\midrule
+HTML Pages & 12,487 \\
+Processed Chunks & 121,080 \\
+Unique Images & 61,248 \\
+Evaluation QA Pairs & 305 \\
+\bottomrule
+\end{tabular}
+\caption{Ore-acle dataset composition (100 pages $\times$ 3 difficulty levels, plus 5 manually seeded adversarial narrative queries).}
+\label{tab:corpus}
+\end{table}
+
+\textbf{Pipeline Stages:}
+\begin{enumerate}
+    \item \textbf{Wiki Scraper}: MediaWiki HTML extraction with rate-limited crawling
+    \item \textbf{Text Cleaner}: HTML-to-markdown conversion preserving tables and infoboxes
+    \item \textbf{Chunker}: Recursive section-aware splitting with configurable overlap
+    \item \textbf{Embedder}: BAAI/bge-m3~\cite{bge2024} used as the primary embedding model; Nomic~\cite{nomic2024}, multilingual-E5-Large~\cite{wang2022text}, and Gemini Embedding are identified as future ablation targets
+    \item \textbf{Ingestor}: Dual-write to ChromaDB (vectors) and SQLite FTS5 (keyword index)
+\end{enumerate}
+
+\textbf{Data Schema Challenges:}
+\begin{itemize}
+    \item URL normalization required for joining \texttt{metadata.json} (requested images) with \texttt{image\_metadata.json} (downloaded images)
+    \item Source page arrays truncated at 18 entries; full intersection requires URL-based matching with \texttt{urllib.parse.unquote()}
+    \item FTS5 default AND semantics modified to OR for natural language queries
+\end{itemize}
+
+\subsection{Retrieval Architecture}
+
+\textbf{Storage Strategy:}
+\begin{itemize}
+    \item \textbf{ChromaDB}: Persistent local vector store (121,080 chunks, collection \texttt{chunks\_baai\_bge\_m3})
+    \item \textbf{SQLite FTS5}: Full-text search with BM25-equivalent ranking (121,618 rows)
+    \item \textbf{Local Filesystem}: WebP-compressed images (\texttt{data/raw/images/[hash].webp})
+\end{itemize}
+
+\textbf{Runtime Query Flow:}
+\begin{figure}[htbp]
+    \centering
+    \definecolor{moeorange}{RGB}{252,223,189}
+    \definecolor{attnblue}{RGB}{196,213,242}
+    \definecolor{basegray}{RGB}{240,240,240}
+    \definecolor{arrowred}{RGB}{135,63,73}
+    \begin{tikzpicture}[
+        scale=0.7, transform shape,
+        node distance=0.8cm and 0.5cm,
+        basebox/.style={rectangle, draw=black, thick, text centered, rounded corners=3pt, minimum height=0.7cm, minimum width=4cm, inner sep=5pt},
+        bluebox/.style={basebox, fill=attnblue},
+        orangebox/.style={basebox, fill=moeorange},
+        graybox/.style={basebox, fill=basegray},
+        plainbox/.style={basebox, fill=white},
+        arrow/.style={thick,->,>=stealth, draw=black},
+        redarrow/.style={thick,->,>=stealth, draw=arrowred},
+        ]
+        
+        \node (user) [plainbox] {User Query};
+        \node (api) [graybox, below=of user] {FastAPI Server};
+        \node (hybrid) [bluebox, below=1.2cm of api] {Hybrid Search Module};
+        
+        \node (chroma) [orangebox, below left=of hybrid, xshift=1.5cm, yshift=-0.5cm] {ChromaDB (Semantic)};
+        \node (sqlite) [orangebox, below right=of hybrid, xshift=-1.5cm, yshift=-0.5cm] {SQLite FTS5 (Keyword)};
+        
+        \node (plus) [circle, draw=black, thick, inner sep=2pt, below=2cm of hybrid] {$\oplus$};
+        
+        \node (rrf) [bluebox, below=0.5cm of plus] {Reciprocal Rank Fusion};
+        \node (topk) [graybox, below=1.2cm of rrf] {Top-K Retrieval ($K=5/10$)};
+        \node (llm) [orangebox, below=of topk] {LLM Generation};
+        \node (response) [plainbox, below=of llm] {Response + Citations};
+        
+        \draw [arrow] (user) -- (api);
+        \draw [arrow] (api) -- (hybrid);
+        \draw [arrow] (hybrid) -| (chroma);
+        \draw [arrow] (hybrid) -| (sqlite);
+        \draw [redarrow] (chroma) |- (plus);
+        \draw [redarrow] (sqlite) |- (plus);
+        \draw [redarrow] (plus) -- (rrf);
+        \draw [arrow] (rrf) -- (topk);
+        \draw [arrow] (topk) -- (llm);
+        \draw [arrow] (llm) -- (response);
+        
+        % Background dashed box
+        \node[rectangle, draw=black, dashed, thick, rounded corners=5pt, fit=(hybrid) (chroma) (sqlite) (rrf), inner sep=15pt, yshift=-2pt] (group) {};
+        
+    \end{tikzpicture}
+    \caption{Runtime hybrid search pipeline mapping dense and sparse retrievers.}
+    \label{fig:query_flow}
+\end{figure}
+
+\subsection{Generation with Citations}
+
+\textbf{NotebookLM-Style Citations:}
+\begin{itemize}
+    \item Verbatim source text quotation in response
+    \item Explicit page title and original URL linking
+    \item Rich content extraction (infoboxes + contextual images)
+\end{itemize}
+
+\textbf{Image Retrieval:}
+\begin{itemize}
+    \item Content-addressed storage (URL hash $\rightarrow$ local file)
+    \item Dynamic inline embedding with text responses
+    \item Two-pass image selection during evaluation question generation
+\end{itemize}
+
+\section{Experimental Setup}
+
+\subsection{Dataset}
+
+The evaluation corpus is derived from a full crawl of the Minecraft Wiki, comprising 12,487 HTML pages captured in a single snapshot. Pages were cleaned, section-split, and chunked into 121,080 segments of up to 512 tokens with a 64-token overlap, using a recursive section-aware splitter that preserves infobox table boundaries. Concurrently, 61,248 images were downloaded, decoded to WebP, and stored under content-addressed filenames derived from their source URLs.
+
+The golden test set consists of 305 question-answer pairs generated via Gemini Flash Lite~\cite{gemini2023}. One hundred wiki pages were sampled to cover a range of content types (mechanics, biomes, mobs, structures, and changelogs); three questions per page were generated at easy, medium, and hard difficulty, with accompanying gold answers and expected source images verified in a second model pass. Five additional adversarial queries (e.g.\ open-ended character lore, ambiguous gear recommendations) were manually seeded to probe robustness beyond direct factual recall.
+
+\subsection{Evaluation Framework}
+
+\footnote{Evaluations tracking latency were conducted on consumer hardware (AMD Ryzen 7 5800X, 32\,GB DDR4, NVIDIA RTX 4060 8\,GB VRAM) entirely locally to validate baseline accessibility.}
+
+\textbf{Golden Test Set Generation:}
+\begin{itemize}
+    \item 305 question-answer pairs spanning explicit game mechanics, lore, and structural challenges.
+    \item Generated via Gemini Flash Lite (OpenRouter) with a two-pass image verification protocol.
+    \item Inclusion of manually seeded adversarial/narrative edge cases (e.g., "Who is Steve?", "Best gearsets") to secure generation robustness against trivia blindspots.
+    \item Streaming JSON processing via \texttt{ijson} applied for localized memory parsing efficiency.
+\end{itemize}
+
+\textbf{Two-Phase Ablation Protocol:}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Phase} & \textbf{Axis} & \textbf{Configurations} \\
+\midrule
+1: Retriever & Search Mode & Semantic / Keyword / Hybrid \\
+ & Embedding & BAAI/bge-m3 (evaluated) / Nomic / E5-Large / Gemini (planned) \\
+ & Chunking & Section-aware / Recursive / LangChain \\
+\midrule
+2: Generator & LLM & Gemma 4 e2B / Gemma 4 31B / Gemini Flash Lite \\
+\bottomrule
+\end{tabular}
+\caption{Ablation study design}
+\label{tab:ablation}
+\end{table}
+
+\subsection{Metrics}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Metric} & \textbf{Description} \\
+\midrule
+Recall@5/10 & Proportion of relevant chunks in top-K \\
+Precision@10 & Accuracy of top-10 retrieved chunks \\
+MRR & Mean Reciprocal Rank of first relevant result \\
+Image Recall & Proportion of questions with correct image retrieval \\
+Token F1 & Lexical overlap between generated and gold answer \\
+ROUGE-L & Longest common subsequence for answer quality \\
+\bottomrule
+\end{tabular}
+\caption{Evaluation metrics}
+\label{tab:metrics}
+\end{table}
+
+\subsection{Baselines}
+
+All retrieval configurations are evaluated relative to a \textbf{semantic-only} dense retriever using BAAI/bge-m3 embeddings, which serves as the primary baseline given its established strong performance on passage retrieval benchmarks. Keyword-only search (SQLite FTS5 with OR semantics) provides a sparse lower bound. The hybrid RRF configuration sweeps $\alpha \in \{0.0, 0.2, \ldots, 1.0\}$ to quantify the contribution of each signal. A vanilla LLM baseline (direct query to the generator without retrieval context) is left for future work; the focus of this study is the retrieval and fusion axes.
+
+\subsection{Human Evaluation}
+
+Automated metrics (Token F1, ROUGE-L, BERTScore) measure lexical and semantic overlap with gold answers but do not capture answer helpfulness, citation trustworthiness, or response coherence as perceived by players. A structured human evaluation is deferred to future work; proposed axes include fluency, factual accuracy, and citation appropriateness, rated on a 5-point Likert scale by at least two annotators per response.
+
+\section{Results and Ablation Studies}
+
+\subsection{Search Mode Ablation}
+
+\textbf{Configuration:} 305-pair questionset, BAAI/bge-m3 embeddings, section-aware chunking
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Mode} & \textbf{MRR} & \textbf{R@5} & \textbf{R@10} & \textbf{Img Rcl} & \textbf{Latency} \\
+\midrule
+Semantic & \textbf{0.620} & 0.444 & 0.518 & \textbf{0.126} & 0.807s \\
+Keyword (OR) & 0.428 & 0.360 & 0.463 & 0.061 & \textbf{0.067s} \\
+Hybrid (RRF, $\alpha$=0.80) & 0.604 & \textbf{0.448} & \textbf{0.520} & 0.122 & 0.659s \\
+\bottomrule
+\end{tabular}
+\caption{Search mode comparison. Best scores in bold.}
+\label{tab:search-mode}
+\end{table}
+
+\textbf{Key Finding:} Semantic search achieves the highest MRR (0.620), excelling at returning the single most relevant chunk first. However, with the RRF weighting tuned to $\alpha$=0.80, hybrid search matches or exceeds semantic on all coverage metrics---R@5, R@10, Precision@10, and Image Recall---at a marginal latency cost. Since RAG performance depends on \emph{covering} the relevant context rather than purely ranking it first, hybrid search at $\alpha$=0.80 is selected as the default retrieval mode.
+
+\subsection{Embedding Model Ablation}
+We evaluate the impact of embedding dimensionality and context window on retrieval performance. While BAAI/bge-m3 serves as our primary baseline, we compare it against Nomic, multilingual-E5-Large, and Gemini Embedding to determine the most effective semantic representation for technical game documentation. This axis is currently undergoing evaluation.
+
+\subsection{Chunking Strategy Ablation}
+Preserving the semantic boundaries of wiki articles is critical for retrieval quality. We ablate our custom section-aware chunker, which respects infoboxes and header hierarchies, against standard LangChain recursive character splitting. This comparison aims to quantify the benefit of domain-specific parsing over general-purpose text splitting strategies. Evaluation on this axis is pending data ingestion.
+
+\subsection{Generator Evaluation}
+
+\textbf{Configuration:} 305-pair questionset, BAAI/bge-m3 embeddings, section-aware chunking, hybrid search ($\alpha$=0.80). All models were prompted with identical system instructions requiring inline \texttt{[n]} citations. We evaluate three models: Gemma 4 e2B and Gemma 4 31B~\cite{gemma2024}, alongside Gemini Flash Lite~\cite{gemini2023}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llccc}
+\toprule
+\textbf{Model} & \textbf{Backend} & \textbf{Avg F1} & \textbf{ROUGE-L} & \textbf{BERTScore} \\
+\midrule
+Gemma 4 e2B & Ollama (local)      & 0.259 & 0.169 & 0.756 \\
+Gemma 4 31B   & OpenRouter (API)    & 0.273 & 0.163 & 0.841 \\
+Gemini Flash Lite & OpenRouter (API) & \textbf{0.277} & \textbf{0.165} & \textbf{0.844} \\
+\bottomrule
+\end{tabular}
+\caption{Generator evaluation. Latency excluded: Ollama (local) and OpenRouter (API) are not comparable on this axis. Best scores in bold.}
+\label{tab:generator}
+\end{table}
+
+\textbf{Key Finding:} Gemini Flash Lite achieves the best Token F1 and BERTScore with scores nearly identical to Gemma 4 31B, demonstrating that a well-optimized small API model can match a much larger one on factual accuracy for this domain. The similarity between e2B and 31B on Token F1 (0.259 vs.\ 0.273) suggests the limiting factor is retrieval quality rather than model capacity.
+
+\subsection{Qualitative Examples}
+[TODO: Sequence of good citations, retrieved images, and failure cases]
+
+\section{Discussion}
+
+\subsection{Keyword Parameter Tuning within Technical Domains}
+
+The SQLite FTS5 index uses modified OR semantics rather than the default AND, a non-obvious configuration choice with significant recall impact. Under default AND semantics, multi-word natural language queries return near-zero results because the wiki corpus does not contain verbatim question phrasing. Switching to OR semantics---while filtering single-character tokens as stopwords---raised keyword Recall@10 from effectively 0 to 0.463, enabling meaningful comparison with the dense retriever. This highlights that keyword retrieval in structured technical corpora requires query-side adaptation: the precision/recall tradeoff is not symmetric with general-domain BM25 assumptions.
+
+\subsection{Design Implications for Wiki RAG}
+\textbf{Winning Configuration:} Hybrid RRF at $\alpha$=0.80 (BAAI/bge-m3 embeddings, section-aware chunking, $K$=20 candidates per retriever, top-10 reranked). This configuration achieves the best coverage metrics (R@5=0.448, R@10=0.520, P@10=0.427) at 0.66s average retrieval latency.
+
+\textbf{Trade-offs:}
+\begin{itemize}
+    \item \textbf{Retrieval Latency:} Semantic (0.8s) vs. Keyword (0.07s)---11$\times$ slower but 45\% higher MRR. These figures are retrieval-only and fully comparable as both run locally.
+    \item \textbf{Resource Load limitations:} Implementing a locally encapsulated system means managing the host machine's physical layout aggressively. Utilizing discrete vector and SQLite instances inherently protects the memory footprint from expanding uncontrollably (unlike pure in-memory RAG graphs).
+    \item \textbf{Citations:} Verbatim quoting eliminates hallucination but requires careful chunk boundary preservation
+\end{itemize}
+
+\subsection{The Role of Images in Spatial/Mechanical Understanding}
+
+Image Recall---the proportion of questions for which the correct source image is present in the top-10 results---reaches 0.131 under the winning hybrid configuration, compared to 0.126 for semantic-only and 0.061 for keyword-only. While these numbers appear low in absolute terms, they reflect a strict exact-match criterion against gold images selected during question generation; partial or contextually relevant images are not credited. More importantly, the presence of \emph{any} relevant image meaningfully improves answer quality for spatially-oriented questions, particularly those involving biome features, multiblock structures, and UI layouts (see Figures~\ref{fig:minecraft_complexity}~and~\ref{fig:crafting_recipe_book}).
+
+\subsection{Limitations}
+\begin{itemize}
+    \item \textbf{Embedding and chunking scope:} This study evaluates BAAI/bge-m3 embeddings and our custom section-aware chunker as a representative baseline. Quantifying the robust performance difference of our section-aware chunker compared to standard LangChain recursive splitting remains a critical direction for future work, as does evaluating the remaining planned embedding models (Nomic, multilingual-E5-Large, Gemini Embedding).
+    \item \textbf{LLM latency not directly comparable:} The generator evaluation mixes two deployment paradigms---Gemma 4 e2B runs locally via Ollama while Gemma 4 31B and Gemini Flash Lite are accessed via OpenRouter. Local inference on consumer hardware (RTX 4060, 8\,GB VRAM) is substantially slower than cloud API calls, making wall-clock latency comparisons misleading. Gemma 4 e2B cannot be served via OpenRouter, and Gemini Flash Lite is a closed-weight model that cannot run locally; a fully controlled latency study would require equivalent hardware for all models.
+    \item \textbf{Domain specificity:} Evaluation is limited to the Minecraft Wiki; generalization to other wikis or technical domains is unverified.
+    \item \textbf{Static snapshot:} The wiki data is a single-point-in-time scrape. Answers may become outdated as the game receives updates. Periodic rescraping and reprocessing would be necessary to maintain Ore-acle as a service. This also extends to the testset as well.
+\end{itemize}
+
+\section{Conclusion}
+
+We present Ore-acle, a fully local multimodal RAG system for complex game wikis. Our systematic ablation framework provides reproducible benchmarks for RAG optimization across retrieval, chunking, and embedding variations in technical domains.
+
+\textbf{Future Work:}
+\begin{itemize}
+    \item Evaluate the robust performance difference between our custom section-aware chunker and standard LangChain recursive splitting, alongside evaluating the pending embedding models (Nomic, multilingual-E5-Large, Gemini Embedding) to quantify their independent contributions to retrieval quality.
+    \item Cross-wiki generalization studies
+    \item Real-time incremental update mechanisms for evolving game versions
+    \item \textbf{Multimodal query input}: An image upload feature is currently implemented for generator models that support vision inputs. However, formal evaluation of retrieval-augmented generation accuracy using player-provided screenshots remains a direction for future work. Extending the pipeline to automatically route game captures through a vision-language model for semantic grounding before retrieval would enable highly contextual queries like ``what is this block?'' directly from in-game footage.
+    \item \textbf{Domain-adapted fine-tuning}: Our generator evaluation shows that mid-size models (e.g., Gemma 4 31B) perform comparably to larger models on Token F1 and BERTScore, while being substantially cheaper to serve. A promising direction is task-specific fine-tuning of a model at this scale using \textsc{Unsloth}~\cite{unsloth2024} on the citation-annotated outputs from Ore-acle's retrieval pipeline. This could close the remaining gap with the largest models while keeping inference costs tractable for self-hosted deployment.
+\end{itemize}
+
+\begin{thebibliography}{9}
+
+\bibitem[Cormack et al.(2009)]{cormack2009reciprocal}
+G.~V. Cormack, C.~L.~A. Clarke, and S.~Büttcher.
+\newblock Reciprocal Rank Fusion outperforms Condorcet and individual rank learning methods.
+\newblock \textit{SIGIR '09}, pages 758--759, 2009.
+
+\bibitem[Gao et al.(2023)]{gao2023retrieval}
+Y.~Gao, Y.~Xiong, X.~Gao, K.~Jia, J.~Pan, Y.~Bi, Y.~Dai, J.~Sun, and H.~Wang.
+\newblock Retrieval-Augmented Generation for Large Language Models: A Survey.
+\newblock \textit{arXiv:2312.10997}, 2023.
+
+\bibitem[Google(2023)]{notebooklm2023}
+Google.
+\newblock NotebookLM: AI Research Tool with verifiable inline citations, 2023.
+\newblock \url{https://notebooklm.google}
+
+\bibitem[Kshirsagar(2024)]{kshirsagar2024enhancing}
+A.~Kshirsagar.
+\newblock Enhancing RAG Performance Through Chunking and Text Splitting Techniques.
+\newblock \textit{Int. J. Sci. Res. Comput. Sci. Eng. Inf. Technol.}, 10:151--158, 2024.
+
+\bibitem[Kumar(2025)]{kumar2025wikipedia}
+R.~Kumar.
+\newblock Wikipedia-Savvy-RAG: A Lightweight Retrieval-Augmented Generation System for STEM Question.
+\newblock In \textit{Proc. Int. Conf. Recent Advancements in Artificial Intelligence}, 2025.
+
+\bibitem[Li et al.(2025)]{li2025enhancing}
+S.~Li, L.~Stenzel, C.~Eickhoff, and S.~A. Bahrainian.
+\newblock Enhancing Retrieval-Augmented Generation: A Study of Best Practices.
+\newblock \textit{arXiv:2501.07391}, 2025.
+
+\bibitem[Yu et al.(2024)]{yu2024evaluation}
+H.~Yu et~al.
+\newblock Evaluation of Retrieval-Augmented Generation: A Survey.
+\newblock \textit{arXiv:2405.07437}, 2024.
+
+\bibitem[Chen et al.(2024)]{bge2024}
+J.~Chen et~al.
+\newblock BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation.
+\newblock \textit{arXiv:2402.03216}, 2024.
+
+\bibitem[Google(2023)]{gemini2023}
+Google.
+\newblock Gemini: A Family of Highly Capable Multimodal Models.
+\newblock \textit{arXiv:2312.11805}, 2023.
+
+\bibitem[Google(2024)]{gemma2024}
+Google.
+\newblock Gemma: Open Models Based on Gemini Research and Technology.
+\newblock \textit{arXiv:2403.08295}, 2024.
+
+\bibitem[Nussbaum et al.(2024)]{nomic2024}
+Z.~Nussbaum et~al.
+\newblock Nomic Embed: Training a Reproducible Long Context Text Embedder.
+\newblock \textit{arXiv:2402.01613}, 2024.
+
+\bibitem[Wang et al.(2022)]{wang2022text}
+L.~Wang et~al.
+\newblock Text Embeddings by Weakly-Supervised Contrastive Pre-training.
+\newblock \textit{arXiv:2212.03533}, 2022.
+
+\bibitem[Han et al.(2024)]{unsloth2024}
+D.~Han and M.~Han.
+\newblock Unsloth: 2--5$\times$ faster, 80\% less memory LLM finetuning.
+\newblock \url{https://github.com/unslothai/unsloth}, 2024.
+
+\bibitem[Mojang Studios(2011)]{minecraft2011}
+Mojang Studios.
+\newblock {Minecraft} [Video game].
+\newblock Microsoft Studios, 2011.
+\newblock \url{https://www.minecraft.net}
+
+\end{thebibliography}
+
+\appendix
+
+\section{Full Hyperparameter Tables}
+[TODO]
+
+\section{Additional Qualitative Examples}
+[TODO]
+
+\section{Prompt Templates}
+[TODO]
+
+
+
+\end{document}

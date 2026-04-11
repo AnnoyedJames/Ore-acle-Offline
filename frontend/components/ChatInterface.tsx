@@ -5,7 +5,7 @@ import { Message, LLMSettings, DEFAULT_LLM_SETTINGS } from '@/types';
 import MessageBubble from './MessageBubble';
 import LoadingSpinner from './LoadingSpinner';
 import LLMSettingsPanel from './LLMSettingsPanel';
-import { Send, SlidersHorizontal } from 'lucide-react';
+import { Send, SlidersHorizontal, RefreshCw } from 'lucide-react';
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -41,7 +41,7 @@ export default function ChatInterface({ messages, setMessages, initialPrompt }: 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: text,
+    content: text,
       timestamp: new Date(),
     };
 
@@ -78,7 +78,11 @@ export default function ChatInterface({ messages, setMessages, initialPrompt }: 
         role: 'assistant',
         content: data.response ?? data.error ?? 'No response from backend. Is the FastAPI server running at localhost:8000?',
         citations: data.citations,
-        images: data.images,
+        // Deduplicate images by URL so the same image doesn't appear multiple times
+        // when it appears in multiple retrieved chunks
+        images: data.images
+          ? Array.from(new Map((data.images as any[]).map(img => [img.url, img])).values())
+          : undefined,
         timestamp: new Date(),
       };
 
@@ -103,6 +107,27 @@ export default function ChatInterface({ messages, setMessages, initialPrompt }: 
     sendMessage(input);
   };
 
+  const handleRegenerate = async () => {
+    if (isLoading || messages.length === 0) return;
+    
+    // Find the last user message
+    let lastUserMessageIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        lastUserMessageIndex = i;
+        break;
+      }
+    }
+    
+    if (lastUserMessageIndex === -1) return;
+    
+    const lastUserText = messages[lastUserMessageIndex].content;
+    
+    // Slice off the last pair to act as an overwrite run
+    setMessages(prev => prev.slice(0, lastUserMessageIndex));
+    await sendMessage(lastUserText);
+  };
+
   return (
     <div className="flex h-full min-w-0 w-full">
 
@@ -110,8 +135,21 @@ export default function ChatInterface({ messages, setMessages, initialPrompt }: 
       <div className="flex flex-col flex-1 min-w-0">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-4 sm:py-6 min-w-0 w-full">
-          {messages.map(message => (
-            <MessageBubble key={message.id} message={message} />
+          {messages.map((message, index) => (
+            <div key={message.id}>
+              <MessageBubble message={message} />
+              {!isLoading && message.role === 'assistant' && index === messages.length - 1 && (
+                <div className="flex justify-center -mt-2 mb-4">
+                  <button
+                    onClick={handleRegenerate}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500 hover:text-diamond-blue transition-colors rounded-full border border-gray-300/50 hover:border-diamond-blue/50"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Regenerate response
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
           {isLoading && (
             <div className="flex justify-start mb-4">
