@@ -7,9 +7,15 @@ Usage:
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from pydantic import Field
+
+# Ensure HuggingFace tools run fully offline, assuming cached models
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
 from pydantic_settings import BaseSettings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -50,11 +56,6 @@ EMBEDDING_MODELS: dict[str, EmbeddingModelInfo] = {
         task_prefix="passage: ",
         query_prefix="query: ",
     ),
-    "google/gemini-embedding-001": EmbeddingModelInfo(
-        model_id="google/gemini-embedding-001",
-        dimension=3072,
-        backend="api",
-    ),
     # BGE-M3 via OpenRouter API (same model as BAAI/bge-m3 local, different backend)
     "baai/bge-m3": EmbeddingModelInfo(
         model_id="baai/bge-m3",
@@ -63,7 +64,7 @@ EMBEDDING_MODELS: dict[str, EmbeddingModelInfo] = {
     ),
 }
 
-DEFAULT_EMBEDDING_MODEL = "baai/bge-m3"
+DEFAULT_EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1.5"
 
 # ---------------------------------------------------------------------------
 # LLM Model Registry

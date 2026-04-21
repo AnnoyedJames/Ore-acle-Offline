@@ -460,6 +460,62 @@ class TextCleaner:
         flush()
         return sections
 
+    def _process_mcui_elements(self, soup: Tag):
+        """Convert Minecraft UI grids (Crafting, Smelting, etc.) into text."""
+        for mcui in soup.select(".mcui"):
+            inp = mcui.select_one(".mcui-input")
+            out = mcui.select_one(".mcui-output")
+            
+            if not inp or not out:
+                continue
+                
+            # Process output
+            out_items = []
+            for out_node in out.select("[title]"):
+                title = out_node.get("title")
+                if title and title not in out_items:
+                    out_items.append(title)
+            out_item = " or ".join(out_items) if out_items else "Unknown"
+            
+            rows = inp.select(".mcui-row")
+            grid = []
+            
+            if rows:
+                for r in rows:
+                    slots = r.select(".invslot")
+                    row_formats = []
+                    for s in slots:
+                        items = []
+                        for item_node in s.select("[title]"):
+                            title = item_node.get("title")
+                            if title and title not in items:
+                                items.append(title)
+                        if items:
+                            # if multiple items animate, join with "or"
+                            row_formats.append(items[0] if len(items) == 1 else "(" + " or ".join(items) + ")")
+                        else:
+                            row_formats.append(".")
+                    grid.append("[" + ", ".join(row_formats) + "]")
+                input_str = " ".join(grid)
+                text = f"[Crafting Recipe: {input_str} -> {out_item}]"
+            else:
+                slots = inp.select(".invslot")
+                items_all = []
+                for s in slots:
+                    items = []
+                    for item_node in s.select("[title]"):
+                        title = item_node.get("title")
+                        if title and title not in items:
+                            items.append(title)
+                    if items:
+                        items_all.append(items[0] if len(items) == 1 else "(" + " or ".join(items) + ")")
+                    else:
+                        items_all.append(".")
+                input_str = ", ".join(items_all)
+                text = f"[Recipe: {input_str} -> {out_item}]"
+                
+            mcui.replace_with(NavigableString(text))
+
     def process_single(self, html_path: Path) -> Optional[dict]:
         """Parse one HTML file into structured metadata."""
         try:
@@ -501,9 +557,12 @@ class TextCleaner:
             # 5. Extract Infobox (and remove from DOM)
             infobox = self._extract_infobox(content)
             
+            # 5.5 Convert MCUI grids
+            self._process_mcui_elements(content)
+
             # 6. Extract Tables (and remove from DOM)
             tables = self._process_tables(content)
-            
+
             # 7. Extract Sections (from remaining clean content)
             sections = self._process_sections_robust(content)
             

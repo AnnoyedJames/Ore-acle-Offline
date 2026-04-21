@@ -93,9 +93,23 @@ class EmbeddingGenerator:
         if not device:
             device = "cuda" if torch.cuda.is_available() else "cpu"
             self.config.device = device
-
+            
+        from backend.config.settings import EMBEDDING_MODELS
+        
+        model_id = self.config.model_name
+        if model_id in EMBEDDING_MODELS:
+            model_id = EMBEDDING_MODELS[model_id].model_id
+            
+        # Fix Windows HuggingFace Cache case-sensitivity bug
+        import os
+        from huggingface_hub import snapshot_download
+        try:
+            model_id = snapshot_download(model_id)
+        except Exception:
+            pass # Fallback to string ID if not found
+        
         self.model = SentenceTransformer(
-            self.config.model_name, 
+            model_id,
             trust_remote_code=True,
             device=device,
         )

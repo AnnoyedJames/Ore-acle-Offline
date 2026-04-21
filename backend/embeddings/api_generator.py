@@ -12,6 +12,7 @@ Usage:
 
 import json
 import logging
+import pickle
 import time
 from pathlib import Path
 from typing import Optional
@@ -62,6 +63,15 @@ class ApiEmbeddingGenerator:
 
         self._client: Optional[OpenAI] = None
 
+        # Persistent query embedding cache: normalised query → float32 vector.
+        # Loaded from disk on first use; saved back after each new entry.
+        # Survives server restarts — common queries (e.g. "who is steve") never
+        # hit the API more than once.
+        self._query_cache: dict[str, np.ndarray] = {}
+        self._query_cache_loaded: bool = False
+        safe = self.model_id.replace("/", "_").replace("-", "_")
+        self._query_cache_path = Path("data") / f"query_embed_cache_{safe}.pkl"
+
     # ------------------------------------------------------------------
     # EmbedderProtocol interface
     # ------------------------------------------------------------------
@@ -98,15 +108,36 @@ class ApiEmbeddingGenerator:
         return result
 
     def embed_query(self, query: str) -> np.ndarray:
-        """Embed a single query string for retrieval."""
+        """Embed a single query string for retrieval.
+
+        Results are cached in memory and persisted to disk so repeated
+        queries (across requests *and* across server restarts) never call
+        the API more than once.
+        """
+        self._ensure_cache_loaded()
+        key = query.strip().lower()
+        if key in self._query_cache:
+            return self._query_cache[key]
+
         client = self._get_client()
         prefix = self._info.query_prefix
         text = f"{prefix}{query}"
-        vecs = self._call_api(client, [text])
+        try:
+            vecs = self._call_api(client, [text])
+        except Exception as e:
+            logger.warning(
+                f"embed_query API failed after retries ({e}). "
+                "Falling back to local BAAI/bge-m3 embedder."
+            )
+            return self._local_fallback_embed(query)
+
         vec = vecs[0].astype(np.float32)
         norm = np.linalg.norm(vec)
         if norm > 0:
             vec /= norm
+
+        self._query_cache[key] = vec
+        self._save_cache()
         return vec
 
     # ------------------------------------------------------------------
@@ -166,6 +197,55 @@ class ApiEmbeddingGenerator:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _local_fallback_embed(self, query: str) -> np.ndarray:
+        """Embed using the local BAAI/bge-m3 sentence-transformers model.
+
+        Called only when the API is unreachable after all retries. Vectors
+        are compatible (same model, same normalisation) so retrieval quality
+        is identical — the demo keeps working regardless of API health.
+        """
+        from backend.embeddings.generator import EmbeddingConfig, EmbeddingGenerator
+        from backend.config.settings import EMBEDDING_MODELS
+
+        # Fall back to the local variant of the same model if it exists,
+        # otherwise use BAAI/bge-m3 (same weights as baai/bge-m3 API model).
+        local_model_id = "BAAI/bge-m3"
+        info = EMBEDDING_MODELS[local_model_id]
+        config = EmbeddingConfig(
+            model_name=local_model_id,
+            truncate_dim=info.dimension,
+            task_prefix=info.task_prefix,
+            query_prefix=info.query_prefix,
+        )
+        gen = EmbeddingGenerator(config)
+        return gen.embed_query(query)
+
+    def _ensure_cache_loaded(self) -> None:
+        """Load the on-disk query cache once (lazy)."""
+        if self._query_cache_loaded:
+            return
+        self._query_cache_loaded = True
+        if self._query_cache_path.exists():
+            try:
+                with open(self._query_cache_path, "rb") as f:
+                    self._query_cache = pickle.load(f)
+                logger.info(
+                    f"Loaded {len(self._query_cache)} cached query embeddings "
+                    f"from {self._query_cache_path}"
+                )
+            except Exception as e:
+                logger.warning(f"Could not load query cache: {e} — starting fresh")
+                self._query_cache = {}
+
+    def _save_cache(self) -> None:
+        """Persist the query cache to disk."""
+        try:
+            self._query_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._query_cache_path, "wb") as f:
+                pickle.dump(self._query_cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+        except Exception as e:
+            logger.warning(f"Could not save query cache: {e}")
+
     def _get_client(self) -> OpenAI:
         if self._client is None:
             api_key = settings.openrouter_api_key
@@ -179,7 +259,7 @@ class ApiEmbeddingGenerator:
 
     def _call_api(self, client: OpenAI, texts: list[str]) -> np.ndarray:
         """Call the OpenRouter embeddings endpoint with retry."""
-        max_retries = 3
+        max_retries = 6
         for attempt in range(max_retries):
             try:
                 resp = client.embeddings.create(model=self.model_id, input=texts)
@@ -187,7 +267,7 @@ class ApiEmbeddingGenerator:
                 return np.array(vecs, dtype=np.float32)
             except Exception as e:
                 if attempt < max_retries - 1:
-                    wait = 2 ** attempt
+                    wait = min(2 ** attempt * 2, 60)  # 2, 4, 8, 16, 32, cap 60
                     logger.warning(f"API error (attempt {attempt + 1}): {e}, retrying in {wait}s")
                     time.sleep(wait)
                 else:

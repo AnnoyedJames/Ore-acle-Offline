@@ -1,0 +1,266 @@
+[
+  {
+    "question": "how fast are boats in minecraft?",
+    "source_page": "Boat",
+    "difficulty": "medium",
+    "multi_hop": false,
+    "notes": "Classic player question; requires the Boat item page, not the Minecraft novels."
+  },
+  {
+    "question": "what is the fastest way to travel in minecraft?",
+    "source_page": "Transportation",
+    "difficulty": "medium",
+    "multi_hop": false,
+    "notes": "Open-ended transport comparison."
+  },
+  {
+    "question": "do boats move faster on ice or blue ice?",
+    "source_page": "Boat",
+    "difficulty": "hard",
+    "multi_hop": true,
+    "hops": [
+      "Boat",
+      "Blue Ice"
+    ],
+    "notes": "Requires boat base speed (Boat) + ice friction values (Blue Ice)."
+  },
+  {
+    "question": "how do you make a nether portal?",
+    "source_page": "Nether portal",
+    "difficulty": "easy",
+    "multi_hop": false,
+    "notes": "High-traffic query; tests basic construction retrieval."
+  },
+  {
+    "question": "what does a beacon do in minecraft?",
+    "source_page": "Beacon",
+    "difficulty": "medium",
+    "multi_hop": false,
+    "notes": "Multi-mechanic page: status effects, pyramid tiers, activation."
+  },
+  {
+    "question": "how do you tame a wolf in minecraft?",
+    "source_page": "Wolf",
+    "difficulty": "easy",
+    "multi_hop": false,
+    "notes": "Very common beginner question."
+  },
+  {
+    "question": "what mobs can spawn in the deep dark biome?",
+    "source_page": "Deep Dark",
+    "difficulty": "medium",
+    "multi_hop": false,
+    "notes": "Warden vs. other mob spawning rules."
+  },
+  {
+    "question": "what is the hardest block to break in minecraft?",
+    "source_page": "Bedrock",
+    "difficulty": "easy",
+    "multi_hop": false,
+    "notes": "Tests retriever returns Bedrock block page, not Bedrock Edition."
+  },
+  {
+    "question": "how do you breed villagers?",
+    "source_page": "Villager",
+    "difficulty": "medium",
+    "multi_hop": false,
+    "notes": "Breeding conditions are commonly misunderstood."
+  },
+  {
+    "question": "what are the rarest items you can get from fishing?",
+    "source_page": "Fishing",
+    "difficulty": "hard",
+    "multi_hop": false,
+    "notes": "Requires loot-table knowledge from the Fishing page."
+  },
+  {
+    "question": "what is the best food to eat in minecraft?",
+    "source_page": "Food",
+    "difficulty": "medium",
+    "multi_hop": false,
+    "notes": "Saturation vs. hunger restoration trade-off."
+  },
+  {
+    "question": "can you use silk touch to pick up a spawner?",
+    "source_page": "Monster Spawner",
+    "difficulty": "medium",
+    "multi_hop": true,
+    "hops": [
+      "Monster Spawner",
+      "Silk Touch"
+    ],
+    "notes": "Requires spawner drop rules (Monster Spawner) + silk touch behavior."
+  },
+  {
+    "question": "what is the best enchantment for mining diamonds fast?",
+    "source_page": "Efficiency",
+    "difficulty": "medium",
+    "multi_hop": true,
+    "hops": [
+      "Efficiency",
+      "Diamond Ore"
+    ],
+    "notes": "Requires Efficiency levels and diamond ore as the target."
+  },
+  {
+    "question": "does looting affect the drops from the ender dragon?",
+    "source_page": "Ender Dragon",
+    "difficulty": "hard",
+    "multi_hop": true,
+    "hops": [
+      "Ender Dragon",
+      "Looting"
+    ],
+    "notes": "Requires dragon drop table + which drops looting can and cannot affect."
+  },
+  {
+    "question": "what food gives the most saturation per hunger bar restored?",
+    "source_page": "Hunger",
+    "difficulty": "hard",
+    "multi_hop": true,
+    "hops": [
+      "Hunger",
+      "Food"
+    ],
+    "notes": "Requires saturation mechanics (Hunger) + per-food saturation values (Food)."
+  },
+  {
+    "question": "can you enchant a shield with unbreaking?",
+    "source_page": "Shield",
+    "difficulty": "medium",
+    "multi_hop": true,
+    "hops": [
+      "Shield",
+      "Unbreaking"
+    ],
+    "notes": "Requires shield enchantability + what items Unbreaking applies to."
+  },
+  {
+    "question": "how many blocks can a piston push?",
+    "source_page": "Piston",
+    "difficulty": "easy",
+    "multi_hop": false,
+    "notes": "Direct numerical fact on the Piston page."
+  },
+  {
+    "question": "do creepers deal more damage in hard mode?",
+    "source_page": "Creeper",
+    "difficulty": "medium",
+    "multi_hop": true,
+    "hops": [
+      "Creeper",
+      "Difficulty"
+    ],
+    "notes": "Requires creeper explosion damage + how difficulty scales mob damage."
+  },
+  {
+    "question": "can you breed two different types of horses to get a mule?",
+    "source_page": "Mule",
+    "difficulty": "medium",
+    "multi_hop": true,
+    "hops": [
+      "Mule",
+      "Horse",
+      "Donkey"
+    ],
+    "notes": "Requires mule breeding which involves Horse + Donkey parents."
+  },
+  {
+    "question": "what is the maximum level of protection you can get from armor?",
+    "source_page": "Armor",
+    "difficulty": "hard",
+    "multi_hop": true,
+    "hops": [
+      "Armor",
+      "Protection"
+    ],
+    "notes": "Requires armor damage reduction formula + Protection enchantment stacking."
+  },
+  {
+    "question": "how do I craft a feather falling potion?",
+    "source_page": "Potion",
+    "difficulty": "easy",
+    "multi_hop": true,
+    "hops": [
+      "Potion",
+      "Feather Falling"
+    ],
+    "notes": "Test crafting a specific potion via brewing."
+  },
+  {
+    "question": "how do I craft a pickaxe?",
+    "source_page": "Pickaxe",
+    "difficulty": "easy",
+    "multi_hop": false,
+    "notes": "Test basic tool crafting recipe."
+  },
+  {
+    "question": "how do you craft a furnace in minecraft?",
+    "source_page": "Furnace",
+    "difficulty": "easy",
+    "multi_hop": false,
+    "notes": "Test basic block crafting recipe."
+  },
+  {
+    "question": "what is the crafting recipe for a cake?",
+    "source_page": "Cake",
+    "difficulty": "easy",
+    "multi_hop": false,
+    "notes": "Test multi-ingredient complex crafting recipe."
+  },
+  {
+    "question": "how do I craft an enchantment table?",
+    "source_page": "Enchanting Table",
+    "difficulty": "medium",
+    "multi_hop": false,
+    "notes": "Test crafting recipe with rare materials."
+  },
+  {
+    "question": "how do you make an observer in minecraft?",
+    "source_page": "Observer",
+    "difficulty": "medium",
+    "multi_hop": false,
+    "notes": "Test redstone component crafting recipe."
+  },
+  {
+    "question": "what is the difference between crafting a sword and an axe?",
+    "source_page": "Sword",
+    "difficulty": "hard",
+    "multi_hop": true,
+    "hops": [
+      "Sword",
+      "Axe"
+    ],
+    "notes": "Test comparing two distinct crafting recipes."
+  },
+  {
+    "question": "how do i craft a target block and a dispenser?",
+    "source_page": "Dispenser",
+    "difficulty": "hard",
+    "multi_hop": true,
+    "hops": [
+      "Target",
+      "Dispenser"
+    ],
+    "notes": "Test retrieving two separate crafting recipes simultaneously."
+  },
+  {
+    "question": "how can I craft chainmail armor?",
+    "source_page": "Chainmail Armor",
+    "difficulty": "hard",
+    "multi_hop": false,
+    "notes": "Trick question, chainmail cannot be crafted in survival, tests uncraftable item handling."
+  },
+  {
+    "question": "what is the crafting sequence to get a daylight detector starting from raw quartz?",
+    "source_page": "Daylight Detector",
+    "difficulty": "hard",
+    "multi_hop": true,
+    "hops": [
+      "Daylight Detector",
+      "Block of Quartz",
+      "Nether Quartz"
+    ],
+    "notes": "Test multi-stage crafting recipe retrieval."
+  }
+]

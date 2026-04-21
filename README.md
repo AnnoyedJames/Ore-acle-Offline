@@ -28,18 +28,21 @@ Ore-acle Offline is a port of the original cloud-native RAG system to a modular,
 | Wiki HTML scraper | ✅ Complete (12,487 pages) |
 | Wiki image downloader | ✅ Complete (61,248 images) |
 | Image processing (WebP conversion) | ✅ Complete |
-| Text cleaner (HTML → JSON) | ✅ Complete |
-| Intelligent chunking (section-aware) | ✅ Complete (121,080 chunks) |
-| **Vector Database** | ✅ ChromaDB — 121,080 chunks, `chunks_baai_bge_m3` |
-| **Keyword Search** | ✅ SQLite FTS5 — 121,618 rows, OR semantics |
+| Base section-aware Chunking | ✅ Complete |
+| LangChain chunking (Ablation target) | ✅ Complete (`data/processed/chunks_langchain.json`, 78,172 chunks) |
+| Text cleaner (HTML → JSON) | ✅ Complete (Handles complex visual Crafting Recipes/Spriting via MCUI extraction) |
+| Intelligent chunking (section-aware, improved) | ✅ Complete — 94,404 chunks (navigation sections removed, merge threshold raised) |
+| **Vector Database** | ✅ ChromaDB — `chunks_nomic_ai_nomic_embed_text_v1_5` (94,382) + `chunks_nomic_ai_nomic_embed_text_v1_5__langchain` (78,161) |
+| **Keyword Search** | ✅ SQLite FTS5 — 94,404 rows (section_aware, nomic), OR semantics |
 | **Image Hosting** | ✅ Local Filesystem (`data/raw/images`, 61k WebP) |
 | **Backend API** | 🚧 FastAPI (`backend/api/server.py`) |
 | **Evaluation Framework** | ✅ Two-phase ablation (`run_eval.py`) |
-| **Gold Questionset** | ✅ 300 Q/A pairs (`data/eval/questionset.json`) |
-| **Search Axis Eval** | ✅ Done — Semantic wins (MRR=0.620 vs Hybrid=0.575) |
-| **Embedding Axis Eval** | 🔲 Needs nomic / e5-large / gemini-embedding ingests |
-| **Chunking Axis Eval** | 🔲 Needs LangChain chunker ingest |
-| **Generator Eval** | 🔲 5 LLMs, uses semantic mode |
+| **Gold Questionset** | ✅ 305 Q/A pairs (`data/eval/questionset.json`) |
+| **Search Axis Eval** | ✅ Done — Hybrid α=0.80 wins R@10/P@10/ImgRecall; MRR gap vs semantic is −1.6pp |
+| **RRF Alpha Sweep** | ✅ Done — α=0.80 optimal (k=20); default locked in `settings.py` |
+| **Embedding Axis Eval** | 🔲 nomic ✅ ingested; e5-large + gemini ingests pending |
+| **Chunking Axis Eval** | 🔲 Both chunkers ingested with nomic embeddings; clean eval run pending |
+| **Generator Eval** | 🔲 4 LLMs (Gemma4 e2B/e4B/31B + Gemini Flash Lite), hybrid mode α=0.80 |
 | **Frontend UI** | ✅ Adapted for Local API |
 
 ---

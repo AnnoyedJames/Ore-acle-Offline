@@ -175,3 +175,10 @@ data/processed/chunks.json
 # Local databases (too large for GitHub, rebuild with ingest scripts)
 data/chroma_db/
 data/sqlite_fts.db
+
+# Archive
+archive/
+
+data/eval/query_embeddings*.npy
+data/eval/query_embeddings*.json
+data/sqlite_fts_langchain.db

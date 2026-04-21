@@ -272,6 +272,135 @@ def select_images_with_llm(
 
 DEFAULT_MODEL = "google/gemini-3.1-flash-lite-preview"
 
+# ---------------------------------------------------------------------------
+# Paraphrase generation
+# ---------------------------------------------------------------------------
+PARAPHRASE_SYSTEM = """\
+You generated search query variations of a given question.
+Rules:
+- Give queries that look like real, concise Google searches (keyword-focused).
+- Do NOT use natural language filler like "how do I", "what is", "yo", "anybody know".
+- Use choppy, keyword-dense language (e.g. "minecraft water bucket recipe", "depth strider speed boost").
+- Preserve the core meaning exactly.
+Return ONLY a JSON array of 2 strings, e.g. ["variant 1", "variant 2"].
+"""
+
+
+def generate_paraphrases(question: str, model: str) -> list[str]:
+    """Generate 2 paraphrase variants of a question using the LLM."""
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": PARAPHRASE_SYSTEM},
+                {"role": "user", "content": f"Original: {question}\n\nGenerate 2 paraphrase variants."},
+            ],
+            temperature=0.7,
+        )
+        raw = response.choices[0].message.content or ""
+        match = re.search(r"\[.*?\]", raw, re.DOTALL)
+        if not match:
+            return []
+        variants: list = json.loads(match.group(0))
+        return [v for v in variants if isinstance(v, str) and v.strip()][:2]
+    except Exception as e:
+        logger.warning(f"Paraphrase generation failed for '{question[:60]}': {e}")
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Gold span extraction
+# ---------------------------------------------------------------------------
+GOLD_SPAN_SYSTEM = """\
+You are building a retrieval evaluation dataset.  Extract the exact sentences
+(verbatim quotes) from one or more wiki pages that together provide the evidence
+needed to answer a question.
+
+Rules:
+- ONLY quote text that appears verbatim in the supplied page text(s).
+- Each span should be 1-4 sentences — self-contained but not an entire paragraph.
+- If the answer needs evidence from multiple pages, produce spans from each
+  required page. Do NOT include a page if it only provides background context
+  that is not strictly necessary to answer the question.
+- Set multi_hop to true only when a reader CANNOT answer the question from
+  any single page alone.
+- Assign hop=1 to the primary source page, hop=2+ to secondary pages.
+
+Return ONLY valid JSON:
+{"multi_hop": false, "gold_spans": [{"text": "...", "source_page": "...", "hop": 1}]}
+"""
+
+
+_metadata_index: Dict[str, dict] = {}   # page_title → page dict, built lazily in main()
+
+
+def _assemble_pages_for_spans(
+    source_page_text: str,
+    source_title: str,
+    relevant_links: List[str],
+    interlinks: Dict[str, List[str]],
+) -> Dict[str, str]:
+    """Build {title: text} dict for the span extraction prompt."""
+    pages: Dict[str, str] = {source_title: source_page_text[:12_000]}
+    for link in relevant_links[:3]:
+        m = re.search(r"/w/(.+)$", link)
+        if not m:
+            continue
+        title = m.group(1).replace("_", " ")
+        if title == source_title:
+            continue
+        if title in _metadata_index:
+            text = assemble_page_text(_metadata_index[title])
+            pages[title] = text[:12_000]
+    return pages
+
+
+def extract_gold_spans(
+    question: str,
+    answer: str,
+    source_title: str,
+    pages: Dict[str, str],
+    model: str,
+) -> Optional[dict]:
+    """Extract verbatim gold spans from page text(s).
+
+    Returns {"multi_hop": bool, "gold_spans": [...]} or None on failure.
+    """
+    sections = []
+    for title, text in pages.items():
+        sections.append(f"=== PAGE: {title} ===\n{text}")
+    pages_block = "\n\n".join(sections)
+
+    prompt = (
+        f"Question: {question}\n\n"
+        f"Expected answer (abstractive — use it only to guide extraction, do NOT copy it): "
+        f"{answer}\n\n"
+        f"{pages_block}\n\nExtract the gold spans."
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": GOLD_SPAN_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+        )
+        raw = resp.choices[0].message.content or ""
+        raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
+        data = json.loads(raw)
+        spans = data.get("gold_spans", [])
+        if not isinstance(spans, list) or not spans:
+            return None
+        return {
+            "multi_hop": bool(data.get("multi_hop", False)),
+            "gold_spans": spans,
+        }
+    except Exception as e:
+        logger.warning(f"Gold span extraction failed for '{question[:60]}': {e}")
+        return None
+
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas for structured LLM output
@@ -531,12 +660,40 @@ def generate_qa_pairs(page: dict, interlinks: Dict[str, List[str]], model: str) 
         except Exception as e:
             logger.warning(f"Image retrieval/selection failed for '{question[:60]}': {e}")
 
+        # Pass 3: paraphrase variants
+        paraphrases: List[str] = []
+        try:
+            paraphrases = generate_paraphrases(question, model)
+            if paraphrases:
+                logger.info(f"  Paraphrases: {len(paraphrases)} variants generated")
+        except Exception as e:
+            logger.warning(f"Paraphrase generation failed for '{question[:60]}': {e}")
+
+        # Pass 4: gold span extraction
+        gold_spans: List[dict] = []
+        multi_hop: bool = False
+        try:
+            page_text = assemble_page_text(page)
+            pages_for_spans = _assemble_pages_for_spans(
+                page_text, page_title, safe_links, interlinks
+            )
+            span_result = extract_gold_spans(question, answer, page_title, pages_for_spans, model)
+            if span_result:
+                gold_spans = span_result["gold_spans"]
+                multi_hop = span_result["multi_hop"]
+                logger.info(f"  Gold spans: {len(gold_spans)}  multi_hop={multi_hop}")
+        except Exception as e:
+            logger.warning(f"Gold span extraction failed for '{question[:60]}': {e}")
+
         results.append({
             "question": question,
             "answer": answer,
             "difficulty": item.get("difficulty", "medium"),
             "relevant_links": safe_links,
             "relevant_images": relevant_images,
+            "paraphrases": paraphrases,
+            "gold_spans": gold_spans,
+            "multi_hop": multi_hop,
             "source_page": page.get("title", ""),
             "generator_model": model,
             "generated_at": timestamp,
@@ -615,12 +772,37 @@ Return only the JSON object, no markdown fences."""
     except Exception as e:
         logger.warning(f"Image retrieval/selection failed for seeded question: {e}")
 
+    # Pass 3: paraphrase variants
+    paraphrases: List[str] = []
+    try:
+        paraphrases = generate_paraphrases(question, model)
+    except Exception as e:
+        logger.warning(f"Paraphrase generation failed for seeded question: {e}")
+
+    # Pass 4: gold span extraction
+    gold_spans: List[dict] = []
+    multi_hop: bool = False
+    try:
+        pages_for_spans = _assemble_pages_for_spans(
+            full_text, page_title, safe_links, interlinks
+        )
+        span_result = extract_gold_spans(question, answer, page_title, pages_for_spans, model)
+        if span_result:
+            gold_spans = span_result["gold_spans"]
+            multi_hop = span_result["multi_hop"]
+            logger.info(f"  Gold spans: {len(gold_spans)}  multi_hop={multi_hop}")
+    except Exception as e:
+        logger.warning(f"Gold span extraction failed for seeded question: {e}")
+
     return {
         "question": question,
         "answer": answer,
         "difficulty": parsed_data.get("difficulty", "medium"),
         "relevant_links": safe_links,
         "relevant_images": relevant_images,
+        "paraphrases": paraphrases,
+        "gold_spans": gold_spans,
+        "multi_hop": multi_hop,
         "source_page": page_title,
         "generator_model": model,
         "generated_at": timestamp,
@@ -678,6 +860,10 @@ def main():
     except Exception as e:
         logger.error(f"Failed loading data: {e}")
         return
+
+    # Build title → page dict for secondary-page span extraction
+    global _metadata_index
+    _metadata_index = {p["title"]: p for p in metadata if p.get("title")}
 
     # Build image indexes before generation so every page has candidates ready
     logger.info("Building image indexes...")

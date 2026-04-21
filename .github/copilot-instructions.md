@@ -16,7 +16,7 @@ Wiki Scraper → data/raw/html/
       ↓
 Text Cleaner → data/processed/metadata.json
       ↓
-   Chunker   → data/processed/chunks.json
+   Chunker   → data/processed/chunks.json (and chunks_langchain.json)
       ↓
   Embedder   → data/processed/embeddings/*.npy (Nomic/E5/BGE)
       ↓
@@ -51,6 +51,7 @@ When working with data processing scripts or evaluations, be aware of the follow
    urllib.parse.unquote(url.split('?')[0].split('#')[0])
 
 5. **SQLite FTS5 Query Semantics**: The keyword search uses OR logic between terms (terms ≤ 2 chars filtered as stopwords). Default FTS5 AND semantics returns 0 results for natural language queries. This fix lives in `SQLiteStore.search()` in `backend/database/local_stores.py`.
+6. **MCUI Crafting Grids / Recipes Format**: Minecraft Wiki visual CSS grids (like crafting tables or furnaces) are parsed by the `text_cleaner.py` into spatial arrays in the metadata text representation. Example: `[Crafting Recipe: [., ., .] [Iron Ingot, ., Iron Ingot] [., Iron Ingot, .] -> Bucket]`. When generating UI, prompting the LLM, or evaluating, be aware that this text format is the exact representation present in chunks and DBs for recipes.
 
 
 ### Data Assets

@@ -66,8 +66,9 @@ class ChunkerConfig:
     overlap_tokens: int = 50
     # Minimum chunk size — skip near-empty sections
     min_tokens: int = 10
-    # Chunks below this threshold get merged with adjacent same-page chunks
-    merge_threshold: int = 50
+    # Minimum token count for a chunk to be considered self-sufficient.
+    # Chunks below this are absorbed into the nearest neighbour if possible.
+    merge_threshold: int = 100
     # Encoding for token counting
     tiktoken_encoding: str = "cl100k_base"
 
@@ -477,18 +478,59 @@ class Chunker:
                     images=[img for img in page_images if img.get("context_type") == "infobox"],
                 ))
 
+        # Build a set of known headings for untagged-image fallback logic
+        known_headings_norm = {
+            s.get("heading", "Introduction").strip().lower()
+            for s in sections
+        }
+
+        # Images with no section tag (or a tag that doesn't match any section)
+        # will fall back to the first content section so they are not silently dropped.
+        untagged_images = [
+            img for img in page_images
+            if (
+                img.get("context_type", "") != "infobox"
+                and img.get("section", "").strip().lower() not in known_headings_norm
+            )
+        ]
+
+        # Infobox images are the canonical entity images (e.g. item/mob sprite).
+        # We include them in the first content section as well as the Infobox chunk
+        # so they surface whenever the introduction/overview section is retrieved.
+        infobox_images = [
+            img for img in page_images
+            if img.get("context_type", "") == "infobox"
+        ]
+
         # 2. Sections
-        for section in sections:
+        for sec_idx, section in enumerate(sections):
             heading = section.get("heading", "Introduction")
             level = section.get("level", 2)
             text = section.get("text", "")
             section_type = section.get("section_type", "content")
+            heading_norm = heading.strip().lower()
 
-            # Find images relevant to this section
+            # Skip pure navigation sections — they are link lists with no
+            # retrieval value and produce many sub-threshold chunks that
+            # pollute ranking.  Images from these sections are untagged and
+            # will have already been assigned to the first content section.
+            if section_type == "navigation":
+                continue
+
+            # Primary match: exact heading (normalised for case/whitespace)
             section_images = [
                 img for img in page_images
-                if img.get("section", "") == heading
+                if img.get("section", "").strip().lower() == heading_norm
+                and img.get("context_type", "") != "infobox"
             ]
+
+            # Fallback: untagged images + infobox images go to the first content section
+            if sec_idx == 0:
+                seen_urls = {img.get("url") for img in section_images}
+                for img in (untagged_images + infobox_images):
+                    if img.get("url") not in seen_urls:
+                        section_images.append(img)
+                        seen_urls.add(img.get("url"))
 
             all_chunks.extend(self._chunk_section(
                 text=text,
@@ -516,82 +558,98 @@ class Chunker:
 
     def _merge_small_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
         """
-        Merge small adjacent chunks from the same page.
+        Merge small chunks into adjacent chunks from the same page.
 
-        Combines consecutive chunks that are both below merge_threshold into
-        a single chunk, as long as the merged result stays under max_tokens.
-        This is futureproof: works for any page regardless of content type.
+        Strategy (two rules, applied in order per chunk):
 
-        Rules:
-        - Only merges adjacent chunks of the same chunk_type
-        - Merged chunk inherits the section_heading of the first chunk,
-          with " + {other_heading}" appended if headings differ
-        - Images from both chunks are combined
-        - Token count is recomputed after merge
+        1. **Absorb-backward**: if the current chunk is below `merge_threshold`
+           tokens AND the last already-emitted chunk has the same `chunk_type`
+           AND the combined text stays under `max_tokens`, absorb the current
+           chunk into the previous one.  This handles short trailing sections
+           ("See also", stub subsections, etc.) that follow a rich content chunk.
+
+        2. **Absorb-forward** (original logic): if the current chunk is below
+           threshold, try to merge it with subsequent small same-type chunks
+           until the budget is exhausted.  Handles pages that start with
+           several short sections before any long one.
+
+        Images are union-merged (no duplicates by URL).
         """
         if len(chunks) <= 1:
             return chunks
 
         threshold = self.config.merge_threshold
         merged: list[Chunk] = []
-        i = 0
 
+        def _absorb(base: Chunk, addition: Chunk) -> Chunk:
+            """Return a new Chunk that is base + addition."""
+            sep = "\n" if base.chunk_type == "table" else "\n\n"
+            new_text = base.text + sep + addition.text
+            new_tokens = self._count_tokens(new_text)
+            new_heading = base.section_heading
+            if addition.section_heading != base.section_heading:
+                if addition.section_heading not in new_heading:
+                    new_heading = f"{new_heading} + {addition.section_heading}"
+            seen_urls = {img.get("url") for img in base.images}
+            new_images = list(base.images)
+            for img in addition.images:
+                if img.get("url") not in seen_urls:
+                    new_images.append(img)
+                    seen_urls.add(img.get("url"))
+            return Chunk(
+                chunk_id=base.chunk_id,
+                page_title=base.page_title,
+                page_url=base.page_url,
+                section_heading=new_heading,
+                section_level=base.section_level,
+                text=new_text,
+                token_count=new_tokens,
+                chunk_type=base.chunk_type,
+                section_type=base.section_type,
+                page_type=base.page_type,
+                categories=base.categories,
+                related_pages=base.related_pages,
+                infobox=base.infobox,
+                images=new_images,
+            )
+
+        i = 0
         while i < len(chunks):
             current = chunks[i]
 
-            # If current chunk is already big enough, keep it as-is
-            if current.token_count >= threshold:
-                merged.append(current)
-                i += 1
+            # Rule 1: absorb-backward — small chunk into preceding output chunk
+            if (
+                current.token_count < threshold
+                and merged
+                and merged[-1].chunk_type == current.chunk_type
+            ):
+                candidate = _absorb(merged[-1], current)
+                if candidate.token_count <= self.config.max_tokens:
+                    merged[-1] = candidate
+                    i += 1
+                    continue
+
+            # Rule 2: absorb-forward — accumulate following small same-type chunks
+            if current.token_count < threshold:
+                combined = current
+                j = i + 1
+                while j < len(chunks):
+                    nxt = chunks[j]
+                    if nxt.chunk_type != current.chunk_type:
+                        break
+                    if nxt.token_count >= threshold:
+                        break
+                    candidate = _absorb(combined, nxt)
+                    if candidate.token_count > self.config.max_tokens:
+                        break
+                    combined = candidate
+                    j += 1
+                merged.append(combined)
+                i = j
                 continue
 
-            # Try to merge with subsequent small chunks of the same type
-            combined_text = current.text
-            combined_tokens = current.token_count
-            combined_images = list(current.images)
-            combined_heading = current.section_heading
-            j = i + 1
-
-            while j < len(chunks):
-                nxt = chunks[j]
-                # Only merge if the next chunk is also small and same type
-                if nxt.token_count >= threshold or nxt.chunk_type != current.chunk_type:
-                    break
-                # Check the merged result won't exceed max_tokens
-                candidate_tokens = combined_tokens + nxt.token_count
-                if candidate_tokens > self.config.max_tokens:
-                    break
-
-                # Perform merge
-                separator = "\n" if current.chunk_type == "table" else "\n\n"
-                combined_text = combined_text + separator + nxt.text
-                combined_tokens = self._count_tokens(combined_text)
-                combined_images.extend(nxt.images)
-                if nxt.section_heading != current.section_heading:
-                    if nxt.section_heading not in combined_heading:
-                        combined_heading = f"{combined_heading} + {nxt.section_heading}"
-                j += 1
-
-            # Create the merged chunk
-            merged_id = self._make_chunk_id(
-                current.page_title, combined_heading, len(merged)
-            )
-            merged.append(Chunk(
-                chunk_id=merged_id,
-                page_title=current.page_title,
-                page_url=current.page_url,
-                section_heading=combined_heading,
-                section_level=current.section_level,
-                text=combined_text,
-                token_count=combined_tokens,
-                chunk_type=current.chunk_type,
-                page_type=current.page_type,
-                categories=current.categories,
-                related_pages=current.related_pages,
-                infobox=current.infobox,
-                images=combined_images,
-            ))
-            i = j
+            merged.append(current)
+            i += 1
 
         return merged
 

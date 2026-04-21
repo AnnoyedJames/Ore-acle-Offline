@@ -32,10 +32,13 @@ Usage:
 import argparse
 import json
 import logging
+import re
 import sys
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
+
+import numpy as np
 
 from dotenv import load_dotenv
 load_dotenv()  # Load .env before any backend imports
@@ -193,6 +196,160 @@ def compute_image_recall(
     }
 
 
+# Non-game page types that are false-positive candidates.
+# Extend this set if other junk categories appear in the corpus.
+_JUNK_PAGE_TYPES = frozenset({
+    "novel", "book", "disambiguation", "redirect",
+    "talk", "meta", "other",
+})
+
+# Pages whose title matches these patterns are also treated as junk.
+_JUNK_TITLE_RE = re.compile(
+    r"(?i)"
+    r"(minecraft:\s*(the\s+(island|voyage|survivors|lost\s+journals|woodsword\s+chronicles|stonesword\s+saga|wither\s+without\s+you))|"
+    r"\b(java|bedrock)\s+edition\b|"
+    r"^(talk:|user:|minecraft\s+wiki:|template:|java\s+edition\s+\d|bedrock\s+edition\s+\d|"
+    r"\d+\.\d+(\.\d+)?(\s+(pre-release|release\s+candidate|snapshot))?))"
+)
+
+
+def compute_fpr(results: list, k: int = 3) -> dict:
+    """False Positive Rate at k: fraction of top-k results that are junk pages.
+
+    'Junk' = novel/book/disambiguation/meta page types, or title matches
+    the novel title pattern.  A high FPR means the retriever is wasting
+    context slots on irrelevant content.
+    """
+    if not results:
+        return {"fpr@3": 0.0, "junk_in_top3": 0}
+
+    top = results[:k]
+    junk = 0
+    for res in top:
+        ptype = getattr(res, "page_type", "") or ""
+        title = getattr(res, "page_title", "") or ""
+        if ptype.lower() in _JUNK_PAGE_TYPES or _JUNK_TITLE_RE.search(title):
+            junk += 1
+    return {"fpr@3": junk / len(top), "junk_in_top3": junk}
+
+
+# Patterns indicating the model could not answer from the retrieved context.
+_NO_ANSWER_RE = re.compile(
+    r"(?i)(do(es)?\s+not\s+contain|not\s+enough\s+information|"
+    r"cannot\s+(find|answer|provide)|"
+    r"(the\s+)?source[s]?\s+don'?t\s+(contain|mention|include)|"
+    r"i\s+(am\s+)?sorry|no\s+information|"
+    r"not\s+mentioned\s+in|cannot\s+be\s+found|"
+    r"unable\s+to\s+(find|answer)|"
+    r"provided\s+source[s]?\s+do\s+not)"
+)
+
+
+def compute_no_answer_rate(answer: str) -> bool:
+    """Return True if the answer text signals a retrieval failure."""
+    return bool(_NO_ANSWER_RE.search(answer))
+
+
+# ---------------------------------------------------------------------------
+# Passage-level recall (requires gold_spans in dataset)
+# ---------------------------------------------------------------------------
+def _token_overlap(a: str, b: str) -> float:
+    """Unigram F1 between two strings (case-insensitive)."""
+    ta = set(re.sub(r"[^a-z0-9 ]", " ", a.lower()).split())
+    tb = set(re.sub(r"[^a-z0-9 ]", " ", b.lower()).split())
+    if not ta or not tb:
+        return 0.0
+    intersection = ta & tb
+    prec = len(intersection) / len(tb)
+    rec = len(intersection) / len(ta)
+    if prec + rec == 0:
+        return 0.0
+    return 2 * prec * rec / (prec + rec)
+
+
+def _span_hit(span_text: str, chunk_text: str, threshold: float = 0.60) -> bool:
+    """Return True if *span_text* is found in *chunk_text*.
+
+    First tries exact substring (handles direct quotes).  Falls back to
+    token-overlap F1 ≥ threshold for cases where whitespace / unicode
+    normalisation differs slightly.
+    """
+    span_norm = re.sub(r"\s+", " ", span_text.strip().lower())
+    chunk_norm = re.sub(r"\s+", " ", chunk_text.strip().lower())
+    if span_norm in chunk_norm:
+        return True
+    return _token_overlap(span_norm, chunk_norm) >= threshold
+
+
+def compute_passage_recall(
+    results: list,
+    gold_spans: list[dict],
+    multi_hop: bool = False,
+    k5: int = 5,
+    k10: int = 10,
+) -> dict:
+    """Passage-level recall using verbatim gold spans.
+
+    For single-page questions (multi_hop=False):
+        passage_recall@K = fraction of gold spans covered by at least one
+        top-K chunk (OR logic — any span covered counts).
+
+    For multi-hop questions (multi_hop=True):
+        passage_recall@K = fraction of distinct hops (page groups) where
+        at least one span from that hop was covered (AND logic — all hops
+        needed for full score; partial hop coverage reported as hop_coverage).
+
+    Falls back gracefully to None when gold_spans is empty.
+    """
+    if not gold_spans:
+        return {
+            "passage_recall@5": None,
+            "passage_recall@10": None,
+            "hop_coverage": None,
+        }
+
+    chunks_at_5 = [getattr(r, "text", "") or "" for r in results[:k5]]
+    chunks_at_10 = [getattr(r, "text", "") or "" for r in results[:k10]]
+
+    if not multi_hop:
+        # OR logic: fraction of spans hit by any top-K chunk
+        hits5 = sum(
+            1 for s in gold_spans
+            if any(_span_hit(s["text"], c) for c in chunks_at_5)
+        )
+        hits10 = sum(
+            1 for s in gold_spans
+            if any(_span_hit(s["text"], c) for c in chunks_at_10)
+        )
+        n = len(gold_spans)
+        return {
+            "passage_recall@5": hits5 / n,
+            "passage_recall@10": hits10 / n,
+            "hop_coverage": None,  # N/A for single-hop
+        }
+    else:
+        # AND logic: group spans by hop, require all hops to be covered
+        hops: dict[int, list[str]] = {}
+        for s in gold_spans:
+            hop = s.get("hop", 1)
+            hops.setdefault(hop, []).append(s["text"])
+
+        n_hops = len(hops)
+        hops_hit_at_5 = sum(
+            1 for hop_spans in hops.values()
+            if any(_span_hit(sp, c) for sp in hop_spans for c in chunks_at_5)
+        )
+        hops_hit_at_10 = sum(
+            1 for hop_spans in hops.values()
+            if any(_span_hit(sp, c) for sp in hop_spans for c in chunks_at_10)
+        )
+        return {
+            "passage_recall@5": hops_hit_at_5 / n_hops,
+            "passage_recall@10": hops_hit_at_10 / n_hops,
+            "hop_coverage": hops_hit_at_10 / n_hops,
+        }
+
+
 # ---------------------------------------------------------------------------
 # Generation metrics
 # ---------------------------------------------------------------------------
@@ -332,20 +489,132 @@ def _build_context_string(results: list, max_sources: int = 5) -> str:
 # Load chunks.json for text hydration
 # ---------------------------------------------------------------------------
 
+# Minimal fields needed for retrieval metrics (page_url, images).
+# Omitting "text" avoids loading ~1.5 GB of text into memory.
+_LOOKUP_FIELDS = frozenset(
+    {"chunk_id", "page_title", "page_url", "section_heading",
+     "images", "chunk_type", "page_type", "infobox"}
+)
+
+
 def _load_chunks_lookup(path: Path | None = None) -> dict[str, dict]:
-    """Load a chunks JSON file into a {chunk_id: chunk_dict} lookup."""
+    """Stream a chunks JSON file into a lightweight {chunk_id: chunk_dict}.
+
+    Uses ``ijson`` for streaming to avoid loading the full multi-GB file into
+    memory.  Only the fields required for retrieval metrics are kept.
+    Falls back to standard ``json.load`` if ``ijson`` is not installed.
+    """
     cpath = path or settings.chunks_file
     if not cpath.exists():
         logger.warning(f"{cpath} not found")
         return {}
+
+    logger.info(f"Loading chunks lookup from {cpath} (streaming) ...")
+    try:
+        import ijson  # type: ignore
+        lookup: dict[str, dict] = {}
+        with open(cpath, "rb") as f:
+            for chunk in ijson.items(f, "item"):
+                cid = chunk.get("chunk_id", "")
+                if cid:
+                    lookup[cid] = {k: v for k, v in chunk.items() if k in _LOOKUP_FIELDS}
+        logger.info(f"Loaded {len(lookup)} chunk entries (streaming)")
+        return lookup
+    except ImportError:
+        logger.warning("ijson not installed — falling back to json.load (may OOM on large files)")
+    except Exception as e:
+        logger.warning(f"ijson streaming failed ({e}) — falling back to json.load")
+
     with open(cpath, "r", encoding="utf-8") as f:
         chunks = json.load(f)
-    return {c["chunk_id"]: c for c in chunks}
+    return {c["chunk_id"]: {k: v for k, v in c.items() if k in _LOOKUP_FIELDS}
+            for c in chunks}
 
 
 # ===================================================================
 # PHASE 1 - RETRIEVER EVALUATION
 # ===================================================================
+
+_EVAL_CACHE_DIR = Path("data/eval")
+
+
+def _load_or_build_query_cache(
+    questions: list[dict],
+    embedder: Any,
+    model_id: str,
+) -> dict[str, Any]:
+    """Return {question_text: np.ndarray | None} for every question.
+
+    On the first call for a given model the embeddings are computed and saved
+    to ``data/eval/query_embeddings_<safe_model>.npy`` +
+    ``data/eval/query_embeddings_<safe_model>_ids.json``.
+    Subsequent calls (or subsequent eval runs) load from disk — no API calls.
+    """
+    safe = model_id.replace("/", "_").replace("-", "_")
+    npy_path = _EVAL_CACHE_DIR / f"query_embeddings_{safe}.npy"
+    ids_path = _EVAL_CACHE_DIR / f"query_embeddings_{safe}_ids.json"
+
+    texts = [q["question"] for q in questions]
+
+    # --- load from disk if available ---
+    if npy_path.exists() and ids_path.exists():
+        cached_ids: list[str] = json.loads(ids_path.read_text(encoding="utf-8"))
+        vecs = np.load(npy_path, allow_pickle=False)
+        if len(cached_ids) == len(vecs):
+            result: dict[str, Any] = dict(zip(cached_ids, vecs))
+            # Fill missing questions (e.g. dataset grew since last cache run)
+            missing = [t for t in texts if t not in result]
+            if not missing:
+                logger.info(
+                    f"Query embedding cache hit ({len(cached_ids)} vectors) for model '{model_id}'"
+                )
+                return result
+            logger.info(
+                f"Partial cache hit for '{model_id}': {len(cached_ids)} cached, "
+                f"{len(missing)} new questions need embedding"
+            )
+            texts_to_embed = missing
+        else:
+            logger.warning("Cache size mismatch — rebuilding from scratch")
+            result = {}
+            texts_to_embed = texts
+    else:
+        result = {}
+        texts_to_embed = texts
+
+    # --- embed missing questions ---
+    logger.info(f"Embedding {len(texts_to_embed)} questions for model '{model_id}' ...")
+    skip_count = 0
+    for txt in tqdm(texts_to_embed, desc=f"  embed [{safe}]", leave=False):
+        try:
+            result[txt] = embedder.embed_query(txt)
+        except Exception as e:
+            logger.warning(f"Embedding failed for '{txt[:60]}': {e} — skipped")
+            result[txt] = None
+            skip_count += 1
+
+    if skip_count:
+        logger.warning(
+            f"{skip_count}/{len(texts_to_embed)} questions failed embedding for '{model_id}'"
+        )
+
+    # --- persist to disk (only the successfully embedded questions) ---
+    all_texts = list(result.keys())
+    valid_mask = [v is not None for v in result.values()]
+    valid_texts = [t for t, ok in zip(all_texts, valid_mask) if ok]
+    valid_vecs = [result[t] for t in valid_texts]
+
+    if valid_vecs:
+        _EVAL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        np.save(npy_path, np.array(valid_vecs, dtype=np.float32))
+        ids_path.write_text(json.dumps(valid_texts), encoding="utf-8")
+        logger.info(
+            f"Saved {len(valid_vecs)} query embeddings to {npy_path} "
+            f"(skipped {skip_count} failed)"
+        )
+
+    return result
+
 
 def run_retriever_axis(
     axis: str,
@@ -392,6 +661,12 @@ def run_retriever_axis(
     # Cache of per-chunking loaded lookups to avoid redundant re-loads
     _lookup_cache: dict[str, dict] = {}
 
+    # Per-model disk-backed query embedding cache.
+    # Key: model_id  Value: {question_text: np.ndarray | None}
+    # Populated once per model, persisted to data/eval/ so subsequent
+    # eval runs skip the API call entirely.
+    _embed_cache: dict[str, dict[str, Any]] = {}
+
     for cfg in configs:
         label = cfg.get("label", f"{cfg['embedding']}|{cfg['search']}|{cfg['chunking']}")
         logger.info(f"\n{'='*60}\nConfig: {label}\n{'='*60}")
@@ -411,14 +686,46 @@ def run_retriever_axis(
             _lookup_cache[ck] = _load_chunks_lookup(meta["chunks_file"])
         active_lookup = _lookup_cache[ck]
 
+        # Resolve per-model query embedding cache (disk-backed).
+        # Keyword-only configs need no embeddings.
+        query_vec_cache: dict[str, Any] = {}  # question_text -> np.ndarray | None
+        if cfg["search"] != "keyword":
+            model_id = cfg["embedding"]
+            if model_id not in _embed_cache:
+                _embed_cache[model_id] = _load_or_build_query_cache(
+                    questions, search_engine.embedder, model_id
+                )
+            query_vec_cache = _embed_cache[model_id]
+
         per_q: list[dict] = []
 
         for q in tqdm(questions, desc=label, leave=False):
+            qtext = q["question"]
+            qvec = query_vec_cache.get(qtext) if cfg["search"] != "keyword" else None
+
+            # Skip questions where embedding failed — don't pollute metrics with 0s
+            if cfg["search"] != "keyword" and qvec is None:
+                per_q.append({
+                    "question": qtext,
+                    "source_page": q.get("source_page", ""),
+                    "difficulty": q.get("difficulty", ""),
+                    "multi_hop": q.get("multi_hop", False),
+                    "latency": 0.0,
+                    "skipped": True,
+                    "recall@5": None, "recall@10": None,
+                    "precision@10": None, "mrr": None, "image_recall": None,
+                    "fpr@3": None, "junk_in_top3": None,
+                    "passage_recall@5": None, "passage_recall@10": None,
+                    "hop_coverage": None,
+                })
+                continue
+
             t0 = time.time()
             results = search_engine.search(
-                q["question"],
+                qtext,
                 mode=cfg["search"],
                 chunks_lookup=active_lookup,
+                query_vec=qvec,
             )
             latency = time.time() - t0
 
@@ -428,13 +735,23 @@ def run_retriever_axis(
             img_metrics = compute_image_recall(
                 results, q.get("relevant_images", [])
             )
+            fpr_metrics = compute_fpr(results, k=3)
+            passage_metrics = compute_passage_recall(
+                results,
+                q.get("gold_spans", []),
+                multi_hop=q.get("multi_hop", False),
+            )
             per_q.append({
-                "question": q["question"],
+                "question": qtext,
                 "source_page": q.get("source_page", ""),
                 "difficulty": q.get("difficulty", ""),
+                "multi_hop": q.get("multi_hop", False),
                 "latency": round(latency, 4),
+                "skipped": False,
                 **metrics,
                 **img_metrics,
+                **fpr_metrics,
+                **passage_metrics,
             })
 
         all_results[label] = per_q
@@ -442,21 +759,38 @@ def run_retriever_axis(
     # Aggregate
     summary_rows = []
     for label, per_q in all_results.items():
-        n = len(per_q)
+        # Exclude skipped questions (embedding failures) from metric averages
+        scored = [r for r in per_q if not r.get("skipped", False)]
+        n_total = len(per_q)
+        n = len(scored)
+        n_skipped = n_total - n
+        if n == 0:
+            logger.warning(f"Config '{label}': all {n_total} questions skipped — no metrics available")
+            continue
+        if n_skipped:
+            logger.warning(f"Config '{label}': {n_skipped}/{n_total} questions skipped (embedding failure), metrics over {n} questions")
+        # Separate passage recall — only average over entries that have gold_spans
+        pr_scored = [r for r in scored if r.get("passage_recall@10") is not None]
         agg = {
             "config": label,
             "n": n,
-            "recall@5": sum(r["recall@5"] for r in per_q) / n,
-            "recall@10": sum(r["recall@10"] for r in per_q) / n,
-            "precision@10": sum(r["precision@10"] for r in per_q) / n,
-            "mrr": sum(r["mrr"] for r in per_q) / n,
-            "image_recall": sum(r["image_recall"] for r in per_q) / n,
-            "avg_latency": sum(r["latency"] for r in per_q) / n,
+            "n_skipped": n_skipped,
+            "recall@5": sum(r["recall@5"] for r in scored) / n,
+            "recall@10": sum(r["recall@10"] for r in scored) / n,
+            "precision@10": sum(r["precision@10"] for r in scored) / n,
+            "mrr": sum(r["mrr"] for r in scored) / n,
+            "image_recall": sum(r["image_recall"] for r in scored) / n,
+            "fpr@3": sum(r["fpr@3"] for r in scored) / n,
+            "passage_recall@5": sum(r["passage_recall@5"] for r in pr_scored) / len(pr_scored) if pr_scored else None,
+            "passage_recall@10": sum(r["passage_recall@10"] for r in pr_scored) / len(pr_scored) if pr_scored else None,
+            "avg_latency": sum(r["latency"] for r in scored) / n,
         }
         summary_rows.append(agg)
+        pr10_str = f"{agg['passage_recall@10']:.3f}" if agg["passage_recall@10"] is not None else "N/A"
         logger.info(
             f"  {label}: R@5={agg['recall@5']:.3f}  R@10={agg['recall@10']:.3f}  "
-            f"MRR={agg['mrr']:.3f}  ImgR={agg['image_recall']:.3f}"
+            f"MRR={agg['mrr']:.3f}  ImgR={agg['image_recall']:.3f}  "
+            f"FPR@3={agg['fpr@3']:.3f}  PassR@10={pr10_str}"
         )
 
     return {"axis": axis, "summary": summary_rows, "per_question": all_results}
@@ -536,6 +870,7 @@ def run_generator(
                 f1 = compute_token_f1(answer, golden)
                 rouge_l = compute_rouge_l(answer, golden)
                 cit_f = _citation_faithfulness(answer, results, q.get("source_page", ""))
+                no_answer = compute_no_answer_rate(answer)
 
                 per_q.append({
                     "question": q["question"],
@@ -546,6 +881,7 @@ def run_generator(
                     "token_f1": round(f1, 4),
                     "rouge_l": round(rouge_l, 4),
                     "citation_faithfulness": cit_f,
+                    "no_answer": no_answer,
                     "prompt_tokens": resp.prompt_tokens,
                     "completion_tokens": resp.completion_tokens,
                     "latency": round(latency, 4),
@@ -616,6 +952,7 @@ def run_generator(
             "avg_bert_score_f1": sum(bert_scores) / len(bert_scores) if bert_scores else None,
             "citation_faithfulness": sum(cit_scores) / len(cit_scores) if cit_scores else None,
             "citation_faithfulness_n": len(cit_scores),
+            "no_answer_rate": sum(1 for r in per_q if r.get("no_answer")) / n,
             "avg_latency": sum(r["latency"] for r in per_q) / n,
             "total_prompt_tokens": sum(r["prompt_tokens"] for r in per_q),
             "total_completion_tokens": sum(r["completion_tokens"] for r in per_q),
@@ -626,7 +963,7 @@ def run_generator(
         logger.info(
             f"  {info.label}: F1={agg['avg_f1']:.3f}  ROUGE-L={agg['avg_rouge_l']:.3f}  "
             f"BERTScore={bert_str}  "
-            f"CitF={cit_str}  Latency={agg['avg_latency']:.2f}s"
+            f"CitF={cit_str}  NAR={agg['no_answer_rate']:.3f}  Latency={agg['avg_latency']:.2f}s"
         )
 
     return {
@@ -652,14 +989,19 @@ def _write_retriever_report(data: dict, out_dir: Path, ts: str) -> None:
     lines = [
         f"# Retriever Evaluation - Axis: {axis}",
         f"_Generated: {ts}_\n",
-        "| Config | Recall@5 | Recall@10 | P@10 | MRR | Img Recall | Latency |",
-        "|--------|----------|-----------|------|-----|------------|---------|",
+        "| Config | N | Skipped | Recall@5 | Recall@10 | P@10 | MRR | Img Recall | PassR@10 | FPR@3 | Latency |",
+        "|--------|---|---------|----------|-----------|------|-----|------------|----------|-------|---------|",
     ]
     for r in rows:
+        skipped = r.get("n_skipped", 0)
+        skip_str = f"{skipped}" if skipped else "0"
+        fpr = r.get("fpr@3", 0.0) or 0.0
+        pr10 = r.get("passage_recall@10")
+        pr10_str = f"{pr10:.3f}" if pr10 is not None else "N/A"
         lines.append(
-            f"| {r['config']} | {r['recall@5']:.3f} | {r['recall@10']:.3f} | "
+            f"| {r['config']} | {r['n']} | {skip_str} | {r['recall@5']:.3f} | {r['recall@10']:.3f} | "
             f"{r['precision@10']:.3f} | {r['mrr']:.3f} | "
-            f"{r['image_recall']:.3f} | {r['avg_latency']:.3f}s |"
+            f"{r['image_recall']:.3f} | {pr10_str} | {fpr:.3f} | {r['avg_latency']:.3f}s |"
         )
 
     md_path = out_dir / f"retriever_{axis}_{ts}.md"
@@ -676,14 +1018,17 @@ def _write_generator_report(data: dict, out_dir: Path, ts: str) -> None:
         "# Generator Evaluation",
         f"_Retrieval config: {cfg['embedding']} | {cfg['search_mode']} | {cfg['chunking']}_",
         f"_Generated: {ts}_\n",
-        "| Model | Backend | Avg F1 | Avg ROUGE-L | Avg BERTScore | Avg Latency | Prompt Tok | Compl Tok |",
-        "|-------|---------|--------|-------------|---------------|-------------|------------|-----------||",
+        "| Model | Backend | Avg F1 | Avg ROUGE-L | Avg BERTScore | CitF | NAR | Avg Latency | Prompt Tok | Compl Tok |",
+        "|-------|---------|--------|-------------|---------------|------|-----|-------------|------------|-----------||",
     ]
     for r in rows:
         bs = f"{r['avg_bert_score_f1']:.3f}" if r.get("avg_bert_score_f1") is not None else "N/A"
+        cf = r.get("citation_faithfulness")
+        cit_str = f"{cf:.3f}" if cf is not None else "N/A"
+        nar = r.get("no_answer_rate", 0.0) or 0.0
         lines.append(
             f"| {r['model']} | {r['backend']} | {r['avg_f1']:.3f} | "
-            f"{r['avg_rouge_l']:.3f} | {bs} | {r['avg_latency']:.2f}s | "
+            f"{r['avg_rouge_l']:.3f} | {bs} | {cit_str} | {nar:.3f} | {r['avg_latency']:.2f}s | "
             f"{r['total_prompt_tokens']:,} | {r['total_completion_tokens']:,} |"
         )
 

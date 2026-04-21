@@ -2,21 +2,26 @@
 
 ## Completed ✓
 
-### Cloud → Local Migration (Feb–Mar 2026)
-- [x] Git history audit (scrubbed `data/processed` to reduce repo size)
-- [x] Wiki scraper — 12,487 pages
-- [x] Image downloader — 61,248 WebP images
+### Extracted Data Improvements
 - [x] Text cleaner (HTML → structured JSON)
+- [x] **MCUI Grid parsing**: Modified `text_cleaner.py` to parse Minecraft UI CSS grids (`div.mcui`) into structured `[Crafting Recipe: ...]`, `[Recipe: ...]`, etc. text variants to ensure RAG can read crafting ingredients accurately instead of broken tables.
+- [ ] Run ingestion pipeline (`text_cleaner.py`, `chunker.py`, `ingest.py`) to propagate the new MCUI grid text into ChromaDB and SQLite.
+- [ ] Update frontend/demo to visually render `[Crafting Recipe: ...]` grids.
+- [x] Update LLM context prompt to instruct it on how to output the extracted crafting recipes in a format the demo can parse and render.
 - [x] Section-aware chunker (512 tokens, 50-token overlap)
+- [x] Section-aware chunker **improvements** — merge_threshold 100, absorb-backward rule, skip navigation sections → **94,404 chunks** (down from 121,618)
 - [x] Embedding generator (BAAI/bge-m3 via OpenRouter API)
-- [x] ChromaDB ingest — 121,080 chunks, collection `chunks_baai_bge_m3`
-- [x] SQLite FTS5 ingest — 121,618 rows, `data/sqlite_fts.db`
+- [x] Default embedding model changed to `nomic-ai/nomic-embed-text-v1.5` (local, 768d)
+- [x] ChromaDB ingest — `chunks_nomic_ai_nomic_embed_text_v1_5` (94,382 chunks, nomic, section_aware)
+- [x] ChromaDB ingest — `chunks_nomic_ai_nomic_embed_text_v1_5__langchain` (78,161 chunks, nomic, langchain)
+- [x] SQLite FTS5 ingest — 94,404 rows (section_aware), `data/sqlite_fts.db`
 - [x] Hybrid search (`HybridSearch` — ChromaDB + FTS5 + weighted RRF)
 - [x] Frontend adapted for Local API proxy
 - [x] **Fix**: SQLite FTS5 keyword queries use OR semantics (not default AND); terms ≤ 2 chars filtered as stopwords
 
 ### Evaluation Infrastructure (Apr 2026)
 - [x] Two-phase ablation framework (`scripts/eval/run_eval.py`)
+- [x] Added `scripts/langchain_chunker.py` (Outputs separate `chunks_langchain.json` to not overwrite original)
 - [x] Gold questionset generator (`scripts/eval/generate_questionset.py`)
 - [x] Gold questionset — 305 pairs at `data/eval/questionset.json`
 - [x] `_strip_thinking()` in `run_eval.py` (handles Gemma 4 `<think>` tokens)
@@ -39,32 +44,33 @@
     - Hybrid beats semantic on all coverage metrics; MRR gap is -1.6pp (top-1 precision)
   - `rrf_alpha` default updated to `0.80` in `settings.py`
 
-### 1. Generator Eval ← Next
-Run all 4 LLMs against the winning retrieval config:
-```powershell
-python scripts/eval/run_eval.py --phase generator --search-mode hybrid
-```
-LLMs under test: Gemma 4 e2B, e4B (Ollama local), Gemma 4 31B, Gemini 3.1 Flash Lite (OpenRouter).
-Metrics: Token F1, ROUGE-L, BERTScore F1, latency, token cost.
-- [ ] Start Ollama (`Start-Process "ollama" -ArgumentList "serve"`) before running
-- [ ] Review `data/eval/results/generator_*.md` after completion
+### 1. Generator Eval 
+- [x] Run all 4 LLMs against the winning retrieval config:
+- [x] Review `data/eval/results/generator_*.md` after completion
 
 ### 2. Embedding Axis Eval
-Compares BAAI/bge-m3 (done) vs three additional models. Each requires a full re-embedding + ingest pass:
-- [ ] Ingest `nomic-ai/nomic-embed-text-v1.5` (768d, local) → collection `chunks_nomic_ai_nomic_embed_text_v1_5`
-- [ ] Ingest `intfloat/multilingual-e5-large` (1024d, local) → collection `chunks_intfloat_multilingual_e5_large`
-- [ ] Ingest `google/gemini-embedding-001` (3072d, API) → collection `chunks_google_gemini_embedding_001`
-- [ ] Run `python scripts/eval/run_eval.py --phase retriever --axis embedding`
+- [x] Ingest `nomic-ai/nomic-embed-text-v1.5` (768d, local) → `chunks_nomic_ai_nomic_embed_text_v1_5`
+- [x] Ingest `intfloat/multilingual-e5-large` (1024d, local)
+- [x] Ingest `google/gemini-embedding-001` (3072d, API)
+- [x] Run `python scripts/eval/run_eval.py --phase retriever --axis embedding`
+  - Results (`data/eval/results/retriever_embedding_20260415_234403.md`):
+    - nomic-ai/nomic-embed-text-v1.5: MRR=0.607, R@5=0.462, R@10=0.538, ImgRecall=0.122 ← best MRR & coverage
+    - BAAI/bge-m3: MRR=0.591, R@5=0.448, R@10=0.513, ImgRecall=0.126
+    - intfloat/multilingual-e5-large: MRR=0.497, R@5=0.395, R@10=0.449
+    - google/gemini-embedding-001: MRR=0.429, R@5=0.360, R@10=0.464 (lowest)
+  - **Winner**: nomic-ai/nomic-embed-text-v1.5 on all text metrics; bge-m3 wins ImgRecall by 0.4pp
 
 ### 3. Chunking Axis Eval
-Compares section-aware (done) vs LangChain recursive splitting:
-- [ ] Run LangChain chunker → `data/processed/chunks_langchain.json`
-- [ ] Ingest into ChromaDB collection `chunks_baai_bge_m3__langchain` + `data/sqlite_fts_langchain.db`
-- [ ] Run `python scripts/eval/run_eval.py --phase retriever --axis chunking`
+- [x] Run LangChain chunker → `data/processed/chunks_langchain.json` (78,172 chunks, with images)
+- [x] Ingest langchain into ChromaDB → `chunks_nomic_ai_nomic_embed_text_v1_5__langchain` (78,161 chunks, nomic)
+- [x] Re-run section_aware chunker (improved) → 94,404 chunks; re-embed from scratch (stale cache cleared)
+- [x] Ingest section_aware into ChromaDB → `chunks_nomic_ai_nomic_embed_text_v1_5` (94,382 chunks, nomic)
+- [x] Rebuild SQLite FTS5 → 94,404 rows (section_aware, nomic)
+- [ ] Run `python -m scripts.eval.run_eval --phase retriever --axis chunking` (clean run)
 
 ---
 
-## Backlog
+## Active — Backend Integration
 
 ### FastAPI Backend
 - [ ] Wire `backend/api/server.py` to `HybridSearch` (hybrid mode default)
@@ -72,9 +78,10 @@ Compares section-aware (done) vs LangChain recursive splitting:
 - [ ] Connect frontend proxy to FastAPI
 
 ### UI Enhancements
-- [ ] Sidebar with conversation history
-- [ ] Image lazy loading optimization
+- [x] Sidebar with conversation history
+- [x] Image lazy loading optimization
 - [ ] Citation link persistence (URL params for shared links)
 
 ### CI / Testing
-- [ ] GitHub Actions workflow
+- [x] GitHub Actions workflow / Local test suite
+- [x] Run test suite to verify code functionality

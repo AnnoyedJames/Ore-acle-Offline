@@ -12,6 +12,7 @@ Usage:
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 import numpy as np
@@ -79,9 +80,22 @@ class HybridSearch:
             self._embedder = get_embedder()
         return self._embedder
 
-    def _semantic_search(self, query: str, filter_types: Optional[list[str]] = None) -> list[dict]:
-        """Embed query and search ChromaDB, optionally filtered by page_type."""
-        query_vec = self.embedder.embed_query(query)
+    def _semantic_search(
+        self,
+        query: str,
+        filter_types: Optional[list[str]] = None,
+        query_vec: Optional["np.ndarray"] = None,
+    ) -> list[dict]:
+        """Embed query and search ChromaDB, optionally filtered by page_type.
+
+        Parameters
+        ----------
+        query_vec : np.ndarray | None
+            Pre-computed embedding vector. If provided, skips the embed_query
+            API call (used by the eval to avoid per-question API round-trips).
+        """
+        if query_vec is None:
+            query_vec = self.embedder.embed_query(query)
         results = self.chroma.query(query_vec, n_results=self.semantic_candidates,
                                     filter_page_types=filter_types or [])
         return results
@@ -95,6 +109,7 @@ class HybridSearch:
         semantic_results: list[dict],
         keyword_results: list[dict],
         chunks_lookup: dict[str, dict],
+        alpha_override: Optional[float] = None,
     ) -> list[SearchResult]:
         """Merge results using Weighted Reciprocal Rank Fusion.
 
@@ -103,6 +118,7 @@ class HybridSearch:
         reranking; 0.5 gives equal weight (standard RRF).
         """
         k = self.rrf_k
+        alpha = alpha_override if alpha_override is not None else self.rrf_alpha
         scores: dict[str, float] = {}
         semantic_scores: dict[str, float] = {}
         keyword_scores: dict[str, float] = {}
@@ -110,13 +126,13 @@ class HybridSearch:
         # Weighted RRF: semantic contributes alpha, keyword contributes (1 - alpha)
         for rank, result in enumerate(semantic_results):
             cid = result["id"]
-            scores[cid] = scores.get(cid, 0) + self.rrf_alpha / (k + rank + 1)
+            scores[cid] = scores.get(cid, 0) + alpha / (k + rank + 1)
             semantic_scores[cid] = 1.0 - result.get("distance", 0)
 
         # Score keyword results
         for rank, result in enumerate(keyword_results):
             cid = result["chunk_id"]
-            scores[cid] = scores.get(cid, 0) + (1.0 - self.rrf_alpha) / (k + rank + 1)
+            scores[cid] = scores.get(cid, 0) + (1.0 - alpha) / (k + rank + 1)
             keyword_scores[cid] = abs(result.get("rank", 0))
 
         # Sort by RRF score descending
@@ -207,6 +223,7 @@ class HybridSearch:
         mode: str = "hybrid",
         filter_types: Optional[list[str]] = None,
         chunks_lookup: Optional[dict[str, dict]] = None,
+        query_vec: Optional["np.ndarray"] = None,
     ) -> list[SearchResult]:
         """
         Perform local hybrid search: ChromaDB (semantic) + SQLite FTS5 (keyword).
@@ -224,20 +241,41 @@ class HybridSearch:
         chunks_lookup : dict | None
             Optional {chunk_id: chunk_dict} for text hydration.
             If not provided, relies on ChromaDB metadata.
+        query_vec : np.ndarray | None
+            Pre-computed query embedding. If supplied, skips the embed_query
+            API call. Passed through to _semantic_search.
 
         Returns
         -------
         list[SearchResult]
             Top-k results sorted by RRF score.
         """
+        _alpha_override: Optional[float] = None
         if mode == "semantic":
-            semantic_results = self._semantic_search(query, filter_types)
+            semantic_results = self._semantic_search(query, filter_types, query_vec=query_vec)
             keyword_results = []
         elif mode == "keyword":
             semantic_results = []
             keyword_results = self._keyword_search(query)
         else:  # hybrid
-            semantic_results = self._semantic_search(query, filter_types)
+            # Run semantic and keyword searches in parallel
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                sem_future = executor.submit(
+                    self._semantic_search, query, filter_types, query_vec
+                )
+                kw_future = executor.submit(self._keyword_search, query)
+                semantic_results = sem_future.result()
+                keyword_results = kw_future.result()
+            # Semantic quality gate: if the best cosine similarity is below
+            # threshold the embedding likely missed — shift weight to keyword.
+            if semantic_results:
+                best_sim = 1.0 - min(r.get("distance", 0) for r in semantic_results)
+                if best_sim < 0.55:
+                    _alpha_override = 0.35
+                    logger.info(
+                        f"Semantic quality gate: best_sim={best_sim:.3f} < 0.55, "
+                        f"alpha {self.rrf_alpha}→{_alpha_override}"
+                    )
             keyword_results = self._keyword_search(query)
 
         logger.info(
@@ -249,6 +287,7 @@ class HybridSearch:
             semantic_results,
             keyword_results,
             chunks_lookup or {},
+            alpha_override=_alpha_override if mode == "hybrid" else None,
         )
 
         # Post-filter keyword-only results by page_type if filter requested
@@ -261,5 +300,25 @@ class HybridSearch:
                 f"  #{i + 1}: {r.page_title} > {r.section_heading} "
                 f"(rrf={r.rrf_score:.4f})"
             )
+
+        # Build list of already-included chunk IDs
+        existing_ids = {r.chunk_id for r in merged}
+
+        # Auto-Crafting Retrieval: Search for related crafting recipes
+        # Use a lightweight keyword query that targets the UI string we added
+        recipe_query = query.lower().replace("how do you craft", "").replace("how do i craft", "").replace("how to craft", "").replace("recipe for", "").strip()
+        if len(recipe_query) > 2:
+            crafting_results = self._keyword_search(f'"[Crafting Recipe:" {recipe_query}')
+            if crafting_results:
+                # Get the top candidate that isn't already included
+                new_recipes = [r for r in crafting_results if r["chunk_id"] not in existing_ids]
+                if new_recipes:
+                    top_recipe_chunk = new_recipes[0]
+                    # We must run it through _rrf_merge for hydration, or manually hydrate
+                    hydrated = self._rrf_merge([], [top_recipe_chunk], chunks_lookup or {}, alpha_override=0.0)
+                    if hydrated:
+                        hydrated[0].rrf_score = 0.0  # Pushed to end
+                        merged.append(hydrated[0])
+                        logger.info(f"Auto-injected crafting recipe: {hydrated[0].page_title}")
 
         return merged

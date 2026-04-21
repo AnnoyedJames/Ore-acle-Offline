@@ -147,7 +147,8 @@ class TestDownloadCoverage:
 
                 # 1. Simulate the logic to convert to "Original" URL
                 # This is crucial because we store the ORIGINAL version
-                full_url = downloader._convert_to_original_url(src)
+                from backend.utils.image_utils import get_original_url
+                full_url = get_original_url(src)
                 
                 # 2. Check if we WOULD skip it
                 if downloader._should_skip_url(full_url):

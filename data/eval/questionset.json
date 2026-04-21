@@ -23,7 +23,24 @@
     ],
     "source_page": "Water",
     "generator_model": "google/gemini-3.1-flash-lite-preview",
-    "generated_at": "2026-04-07T16:48:12.371049+00:00"
+    "generated_at": "2026-04-07T16:48:12.371049+00:00",
+    "gold_spans": [
+      {
+        "text": "Water can be collected by using a bucket on a water source block or a full water cauldron , creating a water bucket .",
+        "source_page": "Water",
+        "hop": 1
+      },
+      {
+        "text": "| Ingredients | Crafting recipe | | --- | --- | | Iron Ingot | |",
+        "source_page": "Bucket",
+        "hop": 2
+      }
+    ],
+    "multi_hop": true,
+    "paraphrases": [
+      "minecraft water bucket recipe",
+      "how to make a water bucket in minecraft"
+    ]
   },
   {
     "question": "does depth strider actually help with water currents",
@@ -48,7 +65,20 @@
     ],
     "source_page": "Water",
     "generator_model": "google/gemini-3.1-flash-lite-preview",
-    "generated_at": "2026-04-07T16:48:12.371049+00:00"
+    "generated_at": "2026-04-07T16:48:12.371049+00:00",
+    "gold_spans": [
+      {
+        "text": "Each level of Depth Strider increases water movement efficiency by ⅓, including reducing the speed at which flowing water pushes the player when standing still.",
+        "source_page": "Depth Strider",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "paraphrases": [
+      "does depth strider work against water currents",
+      "how does depth strider affect movement in water",
+      "depth strider effects"
+    ]
   },
   {
     "question": "why does my water source block sometimes disappear when i try to make an infinite pool",

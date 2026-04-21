@@ -38,10 +38,12 @@ Rules:
 Formatting — your response is rendered as Markdown, so use it liberally:
 - Use **bold** for item, mob, and block names on first mention.
 - Use bullet lists (- item) or numbered lists (1. step) for sequences, ingredients, or multiple points.
-- Use Markdown tables (| Header | ... | with |---| separator) whenever comparing stats, listing enchantment levels, crafting recipes with multiple items, mob drops, or any structured data. Tables make information much easier to scan.
+- Use Markdown tables (`| Header | ... |` with `|---|` separator) whenever comparing stats, listing enchantment levels, mob drops, or any structured data.
+  - CRITICAL RULES FOR CRAFTING RECIPES: When you see a raw crafting grid in the format `[Crafting Recipe: [Row 1] [Row 2] [Row 3] -> Output]`, you MUST format it as a clean 3x3 Markdown table in your response. For example, `[Crafting Recipe: [., ., .] [Iron Ingot, ., Iron Ingot] [., Iron Ingot, .] -> Bucket]` should be rendered as a 3x3 table with the exact ingredients in their respective slots, and a sentence denoting the output. Use 'Empty' or blank strings for `.` placeholders.
 - Use inline `code` formatting for commands (e.g. `/give`, `/tp`).
 - Use ### subheadings to organize longer answers into logical sections.
 - You may use Minecraft § color codes for emphasis (e.g., §6Gold§r for gold-colored text, §aDiamond§r for green, §c§lImportant§r for bold red). Combine codes: §l = bold, §o = italic, §r = reset.
+- Images: when a source lists images, embed the most relevant ones inline using standard Markdown `![alt](url)`, placed directly after the text they illustrate. Prefer images that show the subject being discussed (the mob, block, item, or UI element). Do not embed every image — choose the ones that add the most visual clarity. Embed at least one image per answer when images are available.
 
 Remember: accuracy and proper citation are more important than completeness."""
 
@@ -55,7 +57,7 @@ class GeneratorConfig:
     max_tokens: int = 1024
     temperature: float = 0.3  # Low temp for factual accuracy
     # Maximum total context tokens for source chunks
-    max_context_tokens: int = 3000
+    max_context_tokens: int = 6000
     # Request extended thinking tokens (model-dependent; returns <think>…</think> in content)
     thinking: bool = False
 
@@ -130,6 +132,19 @@ class AnswerGenerator:
                 f"URL: {result.page_url}\n"
                 f"Content:\n{result.text}\n"
             )
+
+            # Append inline image references so the LLM can embed them
+            if result.images:
+                img_lines = []
+                for img in result.images[:5]:
+                    local_fn = img.get("local_filename", "")
+                    url = f"/api/image/{local_fn}" if local_fn else img.get("url", "")
+                    alt = img.get("alt_text") or img.get("caption") or result.page_title
+                    if url:
+                        img_lines.append(f"  ![{alt}]({url})")
+                if img_lines:
+                    source_text += "Images available:\n" + "\n".join(img_lines) + "\n"
+
             context_parts.append(source_text)
             total_tokens += result.token_count
 
@@ -144,8 +159,11 @@ class AnswerGenerator:
 
             # Collect images from this chunk
             for img in result.images:
+                # Prefer local URL for offline operation; fall back to wiki URL
+                local_fn = img.get("local_filename", "")
+                url = f"/api/image/{local_fn}" if local_fn else img.get("url", "")
                 img_entry = {
-                    "url": img.get("url", ""),
+                    "url": url,
                     "alt_text": img.get("alt_text", ""),
                     "section": img.get("section", result.section_heading),
                     "caption": img.get("caption", ""),
@@ -166,6 +184,7 @@ class AnswerGenerator:
         query: str,
         search_results: list,
         conversation_history: Optional[list[dict]] = None,
+        user_images: Optional[list[str]] = None,
     ) -> GeneratedAnswer:
         """
         Generate a cited answer from search results.
@@ -174,6 +193,7 @@ class AnswerGenerator:
             query: User's question
             search_results: List of SearchResult from HybridSearch
             conversation_history: Optional previous messages for context
+            user_images: Optional list of base64 images uploaded by user
 
         Returns:
             GeneratedAnswer with content, citations, images, and usage stats
@@ -195,13 +215,23 @@ class AnswerGenerator:
                 })
 
         # Add the current query with sources
-        user_message = (
+        user_message_text = (
             f"Question: {query}\n\n"
             f"Sources:\n{context}\n\n"
             f"Answer the question using the sources above. "
             f"Cite each source with [n] notation."
         )
-        messages.append({"role": "user", "content": user_message})
+
+        if user_images:
+            user_content = [{"type": "text", "text": user_message_text}]
+            for b64_img in user_images:
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": b64_img}
+                })
+            messages.append({"role": "user", "content": user_content})
+        else:
+            messages.append({"role": "user", "content": user_message_text})
 
         # Call LLM (OpenRouter or Ollama)
         logger.info(f"Calling {self.config.model} (thinking={self.config.thinking})...")
@@ -223,10 +253,14 @@ class AnswerGenerator:
         response = self.client.chat.completions.create(**call_kwargs)
 
         content = response.choices[0].message.content or ""
-        # OpenRouter returns thinking tokens in message.reasoning (separate from content).
-        # Prepend as <think>…</think> so the existing ThinkingBlock parser in the frontend
-        # picks them up transparently, regardless of which model produced them.
-        reasoning = getattr(response.choices[0].message, "reasoning", None)
+        # OpenRouter returns thinking tokens in message.reasoning; Ollama returns them
+        # in message.thinking. Both are non-standard fields absent from the OpenAI SDK,
+        # so we access them via getattr. Prepend as <think>…</think> so the frontend
+        # ThinkingBlock parser picks them up transparently.
+        reasoning = (
+            getattr(response.choices[0].message, "reasoning", None) or
+            getattr(response.choices[0].message, "thinking", None)
+        )
         if reasoning:
             content = f"<think>{reasoning}</think>\n{content}"
         usage = {
@@ -248,3 +282,100 @@ class AnswerGenerator:
             model=self.config.model,
             usage=usage,
         )
+
+    def generate_stream(
+        self,
+        query: str,
+        search_results: list,
+        conversation_history: Optional[list[dict]] = None,
+        user_images: Optional[list[str]] = None,
+    ):
+        """
+        Streaming variant of generate(). Yields (event, data) tuples for SSE.
+
+        Events:
+            ("citations", {...})  — sent once before token streaming begins
+            ("token", str)        — individual content delta
+            ("done", {...})       — final summary with usage stats
+            ("error", str)        — on failure
+        """
+        self._init_client()
+
+        context, citations, images = self._build_context(search_results)
+
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        if conversation_history:
+            for msg in conversation_history[-6:]:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+
+        user_message_text = (
+            f"Question: {query}\n\n"
+            f"Sources:\n{context}\n\n"
+            f"Answer the question using the sources above. "
+            f"Cite each source with [n] notation."
+        )
+
+        if user_images:
+            user_content = [{"type": "text", "text": user_message_text}]
+            for b64_img in user_images:
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": b64_img},
+                })
+            messages.append({"role": "user", "content": user_content})
+        else:
+            messages.append({"role": "user", "content": user_message_text})
+
+        # Emit citations + images metadata before streaming tokens
+        yield ("citations", {"citations": citations, "images": images})
+
+        call_kwargs: dict = dict(
+            model=self.config.model,
+            messages=messages,
+            max_tokens=self.config.max_tokens,
+            temperature=self.config.temperature,
+            stream=True,
+        )
+        if self.config.thinking:
+            if "openrouter.ai" in self.config.base_url:
+                call_kwargs["extra_body"] = {"reasoning": {"effort": "medium"}}
+            else:
+                call_kwargs["extra_body"] = {"think": True}
+
+        logger.info(f"Streaming from {self.config.model}...")
+        try:
+            stream = self.client.chat.completions.create(**call_kwargs)
+            full_content = ""
+            reasoning_buf = ""
+            reasoning_emitted = False
+            for chunk in stream:
+                delta = chunk.choices[0].delta if chunk.choices else None
+                if delta is None:
+                    continue
+                # Accumulate reasoning tokens (OpenRouter: delta.reasoning; Ollama: delta.thinking)
+                reasoning_chunk = (
+                    getattr(delta, "reasoning", None) or
+                    getattr(delta, "thinking", None)
+                )
+                if reasoning_chunk:
+                    reasoning_buf += reasoning_chunk
+                if delta.content:
+                    # Emit the opening <think> wrapper once, just before the first content token
+                    if reasoning_buf and not reasoning_emitted:
+                        reasoning_emitted = True
+                        yield ("token", f"<think>{reasoning_buf}</think>\n")
+                    full_content += delta.content
+                    yield ("token", delta.content)
+
+            # Edge case: reasoning but no content tokens (shouldn't happen in practice)
+            if reasoning_buf and not reasoning_emitted:
+                full_content = f"<think>{reasoning_buf}</think>\n"
+                yield ("token", full_content)
+
+            yield ("done", {
+                "model": self.config.model,
+                "content_length": len(full_content),
+            })
+        except Exception as e:
+            logger.exception("Streaming error")
+            yield ("error", str(e))
