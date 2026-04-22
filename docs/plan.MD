@@ -25,7 +25,7 @@ and Cloudflare R2. That works for a demo, but academic evaluation demands:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   Next.js Frontend (React)               │
+│           Vite Frontend (React Single Page App)         │
 │  ┌─────────────┐  ┌────────────┐  ┌──────────────────┐  │
 │  │ Chat UI     │  │ Model      │  │ Settings Gear    │  │
 │  │ (preserved) │  │ Selector ▼ │  │ (search mode,    │  │
@@ -33,7 +33,7 @@ and Cloudflare R2. That works for a demo, but academic evaluation demands:
 │  │             │  │            │  │  reasoning)      │  │
 │  └─────────────┘  └────────────┘  └──────────────────┘  │
 └───────────────────────┬─────────────────────────────────┘
-                        │ HTTP (localhost)
+                        │ HTTP (localhost:8000)
 ┌───────────────────────▼─────────────────────────────────┐
 │                  FastAPI Backend (Python)                 │
 │                                                          │
@@ -46,11 +46,11 @@ and Cloudflare R2. That works for a demo, but academic evaluation demands:
 │  │              Retrieval Pipeline                    │   │
 │  │                                                    │   │
 │  │  Query → Embed → Search → Rerank → Generate       │   │
-│  │           │        │                    │          │   │
-│  │           ▼        ▼                    ▼          │   │
-│  │      Embedding   ChromaDB           LangChain +   │   │
-│  │      Model       + SQLite           OpenRouter    │   │
-│  │   (swappable)    FTS5             (model selector)│   │
+│  │           │  ↓     │  └───────┐         │          │   │
+│  │           ▼  ↓     ▼          │ Auto-   ▼          │   │
+│  │      Embedding  ChromaDB      │ Craft  LangChain + │   │
+│  │      Model      + SQLite      └──────► OpenRouter  │   │
+│  │   (swappable)   FTS5                 (Model Gate.) │   │
 │  └──────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
 
@@ -195,29 +195,24 @@ Compare the existing custom chunker vs LangChain splitters.
 
 ### 5.4 Results to Date (Apr 2026)
 
-#### Search Axis (bge-m3, section_aware, 305 questions)
+  #### Search Axis (nomic, section_aware, 305 questions)
+  
+  | Config | R@5 | R@10 | MRR | ImgRecall |
+  |--------|-----|------|-----|-----------|
+  | Semantic | 0.064 | 0.081 | 0.073 | 0.024 |
+  | Keyword | 0.367 | 0.472 | 0.440 | 0.098 |
+  | Hybrid | 0.070 | 0.085 | 0.102 | 0.027 |
 
-| Config | R@5 | R@10 | MRR | ImgRecall |
-|--------|-----|------|-----|-----------|
-| Semantic | 0.446 | 0.519 | 0.620 | 0.123 |
-| Keyword | 0.360 | 0.463 | 0.428 | — |
-| **Hybrid α=0.80** | **0.448** | **0.520** | 0.604 | **0.131** |
+  **Decision**: Keyword search dramatically outperforms both Semantic and Hybrid.
+  
+  #### Chunking Axis (nomic, hybrid)
+  
+  | Config | R@10 | MRR | ImgRecall |
+  |--------|------|-----|-----------|
+  | section_aware | 0.085 | 0.102 | 0.027 |
+  | langchain | 0.050 | 0.051 | 0.000 |
 
-**Decision**: Hybrid α=0.80 is the default retrieval mode. It wins all coverage metrics (R@10, P@10, ImgRecall) at a -1.6pp MRR cost vs semantic, which is acceptable for RAG where context coverage > top-1 rank.
-
-#### RRF Alpha Sweep (bge-m3, section_aware)
-
-α=0.80 (k=20) is optimal. Locked as default in `settings.py`.
-
-#### Chunking Axis (nomic, hybrid α=0.80) — **PENDING clean run**
-
-Both collections are freshly ingested with nomic-ai/nomic-embed-text-v1.5 embeddings:
-- `chunks_nomic_ai_nomic_embed_text_v1_5` — 94,382 section_aware chunks (improved: navigation removed, merge_threshold=100, absorb-backward)
-- `chunks_nomic_ai_nomic_embed_text_v1_5__langchain` — 78,161 LangChain chunks
-
-A prior run (Apr 19) produced invalid section_aware results (R@5=0.030) due to a stale embedding cache — chunk content changed after merge rewrites while chunk IDs were preserved, causing cached embeddings to mismatch. Cache was cleared and embeddings fully re-generated from scratch.
-
-#### Embedding Axis — **PENDING**
+  **Decision**: The custom `section_aware` chunker definitively defeats the naive `langchain` chunker.
 
 Only nomic-ai/nomic-embed-text-v1.5 ingested. e5-large and gemini-embedding ingests still needed.
 

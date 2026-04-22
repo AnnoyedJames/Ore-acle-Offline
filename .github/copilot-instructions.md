@@ -7,7 +7,7 @@
 - **Vector DB**: Pinecone → **ChromaDB** (Persistent local storage)
 - **Keyword DB**: Supabase → **SQLite FTS5** (Local full-text search)
 - **Image Hosting**: Cloudflare R2 → **Local Filesystem** (`data/raw/images`)
-- **Backend**: Next.js Serverless → **FastAPI Python Server** (`backend/api/server.py`)
+- **Backend**: Vite Frontend App → **FastAPI Python Server** (`backend/api/server.py`)
 - **LLM**: DeepSeek API → **OpenRouter / Local LLM** (via LangChain)
 
 ## Architecture & Data Flow
@@ -83,8 +83,8 @@ All settings are local-first.
 - **Results dir**: `data/eval/results/`
 
 
-**Narrative**: Hybrid search (weighted RRF, α=0.80) is the chosen retrieval mode. α=0.80 wins on all coverage metrics (R@10, P@10, ImgRecall) vs semantic baseline; MRR gap is -1.6pp (top-1 precision). Hybrid is preferred for RAG because context coverage > top-1 rank.
-**Remaining eval axes**: Embedding axis (nomic/e5-large/gemini ingests pending), Chunking axis (needs langchain ingest), Generator eval (4 LLMs: Gemma 4 e2B/e4B/31B + Gemini Flash Lite, uses hybrid mode).
+**Narrative**: Hybrid search (weighted RRF, α=0.80) was initially the chosen retrieval mode. However, recent benchmarks revealed that pure Keyword search heavily outperforms Semantic and Hybrid on our specific task. Keyword Recall@10 is 0.472, vs Semantic 0.081 and Hybrid 0.085. Chunking comparison also proved that the custom semantic `section_aware` chunker (Recall@10=0.085) defeated naive LangChain chunker (Recall@10=0.050). The overall retrieval system performs best as a Keyword-only search with the custom chunker.
+**Remaining eval axes**: Embedding axis (nomic/e5-large/gemini ingests pending), Generator eval (4 LLMs: Gemma 4 e2B/e4B/31B + Gemini Flash Lite, uses hybrid mode).
 
 ## Code Style
 - **Python**: Typed (`mypy` compliant), `black` formatted.
@@ -104,12 +104,12 @@ Same constraints as original:
 - [x] Local Keyword DB (SQLite FTS5) — 121,618 rows, OR-query semantics
 - [x] Evaluation Framework — `run_eval.py` two-phase ablation
 - [x] Gold Questionset — 305 pairs at `data/eval/questionset.json`
-- [x] Search axis eval — Semantic MRR=0.620 baseline; hybrid α=0.80 wins R@10/P@10/ImgRecall
+- [x] Search axis eval — Keyword search (R@10=0.472) dramatically outperforms both Semantic (0.081) and Hybrid (0.085).
+- [x] Chunking axis eval — Custom `section_aware` chunker (R@10=0.085 in hybrid) definitively defeats standard `langchain` chunker (R@10=0.050).
 - [x] Weighted RRF — `rrf_alpha=0.80`, `rrf_k=20` (locked after sweep; configurable per-instance)
 - [x] FastAPI Backend
 - [x] Paper Outline Structure (`latex_paper/main.tex`)
 - [x] RRF alpha sweep — α=0.80 optimal; hybrid is preferred RAG mode
 - [ ] Embedding axis eval (ingests for nomic/e5-large/gemini pending)
-- [ ] Chunking axis eval (needs langchain ingest)
-- [ ] Generator eval (4 LLMs: Gemma 4 e2B/e4B/31B + Gemini Flash Lite, `--phase generator --search-mode hybrid`)
+- [ ] Generator eval (4 LLMs: Gemma 4 e2B/e4B/31B + Gemini Flash Lite, `--phase generator --search-mode keyword`)
 
