@@ -289,29 +289,71 @@ class SQLiteStore:
         )
         return {row["chunk_id"]: dict(row) for row in cursor.fetchall()}
 
-    def search(self, query: str, limit: int = 20) -> list[dict]:
+    def search(self, query: str, limit: int = 20, mode: str = "custom") -> list[dict]:
         """Keyword search using FTS5 BM25 ranking.
+
+        mode: "custom" uses stopword filtering, field weights, and wildcards.
+              "ootb" uses the naive out-of-the-box FTS5 match for evaluation baselines.
 
         Returns list of dicts with keys: chunk_id, page_title,
         section_heading, rank (lower = better match).
         """
-        # Strip FTS5 special characters that cause syntax errors
         import re as _re
         safe_query = _re.sub(r'[^\w\s]', ' ', query, flags=_re.UNICODE).strip()
         if not safe_query:
             return []
-        # Use OR between terms so natural-language queries return results.
-        # Filter out terms ≤ 2 chars (stop words like "a", "i", "in", "do").
-        terms = [t for t in safe_query.split() if len(t) > 2]
+
+        if mode == "ootb":
+            # Naive approach: filter words <= 2 chars, simple OR join, unweighted rank
+            terms = [t for t in safe_query.split() if len(t) > 2]
+            if not terms:
+                return []
+            fts_query = " OR ".join(terms)
+            cursor = self.conn.execute(
+                """
+                SELECT chunk_id, page_title, section_heading, rank
+                FROM chunks_fts
+                WHERE chunks_fts MATCH ?
+                ORDER BY rank
+                LIMIT ?
+                """,
+                (fts_query, limit),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        
+        # Custom mode: Advanced Information Retrieval heuristics
+        # Standard English stopwords
+        _STOPWORDS = {
+            "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your",
+            "yours", "yourself", "yourselves", "he", "him", "his", "himself", "she",
+            "her", "hers", "herself", "it", "its", "itself", "they", "them", "their",
+            "theirs", "themselves", "what", "which", "who", "whom", "this", "that",
+            "these", "those", "am", "is", "are", "was", "were", "be", "been", "being",
+            "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an",
+            "the", "and", "but", "if", "or", "because", "as", "until", "while", "of",
+            "at", "by", "for", "with", "about", "against", "between", "into", "through",
+            "during", "before", "after", "above", "below", "to", "from", "up", "down",
+            "in", "out", "on", "off", "over", "under", "again", "further", "then",
+            "once", "here", "there", "when", "where", "why", "how", "all", "any",
+            "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor",
+            "not", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can",
+            "will", "just", "don", "should", "now"
+        }
+
+        # Filter out hardcoded stop words.
+        terms = [t for t in safe_query.split() if t.lower() not in _STOPWORDS]
         if not terms:
             return []
-        fts_query = " OR ".join(terms)
+            
+        # Append wildcard prefix matching so misspellings / variants match
+        fts_query = " OR ".join([f"{t}*" for t in terms])
+        
         cursor = self.conn.execute(
             """
             SELECT chunk_id, page_title, section_heading, rank
             FROM chunks_fts
             WHERE chunks_fts MATCH ?
-            ORDER BY rank
+            ORDER BY bm25(chunks_fts, 0.0, 10.0, 5.0, 1.0)
             LIMIT ?
             """,
             (fts_query, limit),

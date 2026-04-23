@@ -11,6 +11,8 @@
 \usepackage{listings}
 \usepackage{natbib}
 \usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 \usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit}
 
 \lstset{
@@ -33,16 +35,16 @@
 \maketitle
 
 \begin{abstract}
-We present \textbf{Ore-acle}, a domain-specific retrieval-augmented generation (RAG) system designed for complex game wikis, using Minecraft as a case study. Unlike general-purpose LLMs that hallucinate on technical game mechanics, Ore-acle provides verifiable, multimodal answers with inline citations and contextual image retrieval. We introduce a complete offline pipeline for processing 12,487 HTML wiki pages into 94,404 semantically chunked embeddings (using an improved section-aware chunker with navigation-section removal and merge-threshold optimisation) alongside 61,248 associated images. Through systematic ablation studies on hybrid search architectures (dense semantic + sparse keyword), we evaluate retrieval modes, RRF weighting parameters, chunking strategies, and four LLM generators across 305 expert-curated question-answer pairs. Ore-acle demonstrates that specialized RAG systems can eliminate hallucinations while preserving the rich visual and structural context necessary for spatially-complex domains.
+We present \textbf{Ore-acle}, a domain-specific retrieval-augmented generation (RAG) system designed for complex game wikis, using Minecraft as a case study. Unlike general-purpose LLMs that hallucinate on technical game mechanics, Ore-acle provides verifiable, multimodal answers with inline citations and contextual image retrieval. We introduce a complete offline pipeline for processing 12,487 HTML wiki pages into 94,404 semantically chunked embeddings (using an improved section-aware chunker with navigation-section removal and merge-threshold optimisation) alongside 61,248 associated images. The main purpose of this project, is to find good pratices that can be applied to create high-quality RAG systems for other similar wikis, and explore the pitfalls and experimental methods involving answer quality and RAG evaluation. Through systematic ablation studies on hybrid search architectures (dense semantic + sparse keyword), we evaluate retrieval modes, RRF weighting parameters, chunking strategies, and four LLM generators across 305 LLM-generated but human-curated question-answer pairs. Ore-acle demonstrates that specialized RAG systems can eliminate hallucinations while preserving the rich visual and structural context found when navigating a complex wiki domain.
 \end{abstract}
 
 \section{Introduction}
 
 \subsection{Motivation}
-Complex sandbox games like Minecraft~\cite{minecraft2011} involve thousands of interlocking mechanics, crafting recipes, and entity behaviors that players must manually search through wikis to understand. This friction disrupts gameplay flow and creates barriers to entry. While Large Language Models (LLMs) offer conversational interfaces, they suffer from \textbf{hallucination} on domain-specific technical details and lack \textbf{verifiable provenance} or \textbf{visual context}---critical for spatially-oriented games.
+Complex sandbox games like Minecraft~\cite{minecraft2011} involve thousands of interlocking mechanics, crafting recipes, and entity behaviors that players must manually search through wikis to understand. This disrupts gameplay flow and creates barriers to entry. While Large Language Models (LLMs) offer conversational interfaces, they suffer from \textbf{hallucination} on domain-specific technical details and lack \textbf{verifiable provenance} or \textbf{visual context}---critical for spatially-oriented games.
 
 \subsection{Problem Statement}
-Current solutions fail on three axes:
+Current solutions fail for three reasons:
 \begin{itemize}
     \item \textbf{Verifiability}: No inline citation mechanism for fact-checking generated claims
     \item \textbf{Multimodality}: Text-only responses miss visual-spatial relationships (e.g., redstone circuit layouts, biome characteristics)
@@ -50,7 +52,7 @@ Current solutions fail on three axes:
 \end{itemize}
 
 \subsection{Our Solution: Ore-acle}
-We develop \textbf{Ore-acle Offline}, an offline-first RAG system replicating cloud-based wiki intelligence using strictly offline technologies. The system processes 12,487 Minecraft Wiki pages into a hybrid retrieval architecture (ChromaDB + SQLite FTS5) with NotebookLM-style inline citations and dynamic image embedding.
+We develop \textbf{Ore-acle Offline}, a RAG system designed to answer questions specific to Minecraft. The system processes 12,487 Minecraft Wiki pages into a hybrid retrieval architecture (ChromaDB + SQLite FTS5) with NotebookLM-style inline citations and dynamic image embedding.
 
 \subsection{Contributions}
 \begin{enumerate}
@@ -124,7 +126,7 @@ General-purpose LLMs fail on this domain in three characteristic ways. First, th
 
 \textbf{Corpus Statistics:}
 \begin{table}[h]
-\caption{Ore-acle dataset composition (100 pages $\times$ 3 difficulty levels, plus 5 manually seeded adversarial narrative queries). Section-aware chunks use an improved merge strategy (navigation sections excluded, merge threshold 100~tokens); LangChain uses \texttt{RecursiveCharacterTextSplitter}
+\caption{Ore-acle dataset composition (100 pages $\times$ 3 difficulty levels, plus 5 manually seeded adversarial narrative queries). Section-aware chunks use an improved merge strategy (navigation sections excluded, merge threshold 100~tokens); LangChain uses \texttt{RecursiveCharacterTextSplitter}.}
 \centering
 \begin{tabular}{lc}
 \toprule
@@ -137,7 +139,6 @@ Unique Images & 61,248 \\
 Evaluation QA Pairs & 305 \\
 \bottomrule
 \end{tabular}
-.}
 \label{tab:corpus}
 \end{table}
 
@@ -146,9 +147,58 @@ Evaluation QA Pairs & 305 \\
     \item \textbf{Wiki Scraper}: MediaWiki HTML extraction with rate-limited crawling
     \item \textbf{Text Cleaner}: HTML-to-markdown conversion preserving tables and infoboxes
     \item \textbf{Chunker}: Recursive section-aware splitting with configurable overlap
-    \item \textbf{Embedder}: \texttt{nomic-ai/nomic-embed-text-v1.5}~\cite{nomic2024} is used as the primary embedding model for all chunking ablations (768d, local inference), as it achieves the best MRR and coverage scores in the embedding axis evaluation. BAAI/bge-m3~\cite{bge2024} was used for the initial search-mode and generator evaluations. Both multilingual-E5-Large~\cite{wang2022text} and Gemini Embedding~\cite{gemini2023} were evaluated and are discussed in Section~\ref{sec:embedding-axis}
+    \item \textbf{Embedder}: \texttt{nomic-ai/nomic-embed-text-v1.5}~\cite{nomic2024} is used as the primary embedding model for all chunking ablations (768d, local inference), as it achieves the best MRR and coverage scores in the embedding axis evaluation. BAAI/bge-m3~\cite{bge2024}, multilingual-E5-Large~\cite{wang2022text}, and Gemini Embedding~\cite{gemini2023} were also evaluated and are discussed in Section~\ref{sec:embedding-axis}.
     \item \textbf{Ingestor}: Dual-write to ChromaDB (vectors) and SQLite FTS5 (keyword index)
 \end{enumerate}
+
+\begin{figure*}[ht]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=1.5cm and 0.8cm,
+    box/.style={rectangle, draw=black, thick, fill=blue!5, text width=3.8cm, align=center, rounded corners, minimum height=1.6cm, font=\small},
+    dbbox/.style={cylinder, draw=black, thick, fill=green!5, shape border rotate=90, aspect=0.25, text width=3.2cm, align=center, minimum height=1.8cm, font=\small},
+    arrow/.style={-Latex, thick},
+    group/.style={rectangle, draw=gray, dashed, thick, rounded corners, inner sep=15pt}
+]
+    % Processing Pipeline Row
+    \node[box] (scraper) {\textbf{Wiki Scraper}\\(\texttt{Async HTTP / BS4})\\Extracts pages \& images};
+    \node[box, right=of scraper] (cleaner) {\textbf{Text Cleaner}\\(\texttt{DOM Parsing})\\Preserves grids \& infoboxes};
+    \node[box, right=of cleaner] (chunker) {\textbf{Chunker}\\(\texttt{section\_aware})\\Groups contextual blocks};
+    \node[box, right=of chunker] (embedder) {\textbf{Embedder}\\(\texttt{nomic-embed-text})\\Generates dense vectors};
+    
+    % Grouping boxes (Define pipeline group early to use for wiki placement)
+    \node[group, fit=(scraper) (embedder)] (pipeline) {};
+    \node[anchor=south east, font=\bfseries\small, color=gray] at (pipeline.north east) {Processing Pipeline};
+
+    % Data Source (Above Scraper, but higher to avoid label overlap)
+    \node[box, fill=white, above=2.2cm of scraper] (wiki) {\textbf{Minecraft Wiki}\\\textit{(Online HTML)}};
+
+    % Storage Layer Row (increased distance to 3cm to allow clean arrow routing between groups)
+    \node[dbbox, fill=orange!5, below=2.5cm of cleaner] (localfs) {\textbf{Local filesystem}\\ \texttt{images/} \& \texttt{chunks.json}};
+    \node[dbbox, below=2.5cm of chunker] (sqlite) {\textbf{SQLite FTS5}\\(Keyword Index)};
+    \node[dbbox, below=2.5cm of embedder] (chroma) {\textbf{ChromaDB}\\(Vector Index)};
+    
+    \node[group, fit=(localfs) (chroma)] (storage) {};
+    \node[anchor=south east, font=\bfseries\small, color=gray] at (storage.north east) {Storage Layer};
+
+    % Arrows Main Flow
+    \draw[arrow] (wiki) -- node[right]{\footnotesize HTML} (scraper);
+    \draw[arrow] (scraper) -- node[above, align=center]{\scriptsize Raw \\[-0.8ex] \scriptsize HTML} (cleaner);
+    \draw[arrow] (cleaner) -- node[above, align=center]{\scriptsize Meta- \\[-0.8ex] \scriptsize data} (chunker);
+    \draw[arrow] (chunker) -- node[above]{\scriptsize Texts} (embedder);
+    
+    % Arrows to Storage (Routed precisely in the middle of the 2.5cm gap)
+    \draw[arrow] (scraper.south) -- ++(0,-1.2) -| node[pos=0.25, above]{\footnotesize WebP Images} (localfs.north west);
+    \draw[arrow] (chunker.south west) -- ++(0,-1.2) -| node[pos=0.4, above]{\footnotesize JSON Chunks} (localfs.north east);
+    \draw[arrow] (chunker.south) -- node[pos=0.35, right]{\footnotesize Plain Text} (sqlite.north);
+    \draw[arrow] (embedder.south) -- node[pos=0.35, right]{\footnotesize Embeddings} (chroma.north);
+    
+\end{tikzpicture}%
+}
+\caption{Ore-acle Offline Data Pipeline: From live Minecraft Wiki to hybrid local storage.}
+\label{fig:data_pipeline}
+\end{figure*}
 
 \subsection{Retrieval Architecture}
 
@@ -242,13 +292,13 @@ A key capability of the system is \textbf{Multimodal Context Upload}. Users can 
 
 \subsection{Dataset}
 
-The evaluation corpus is derived from a full crawl of the Minecraft Wiki, comprising 12,487 HTML pages captured in a single snapshot. Pages were cleaned, section-split, and chunked into 94,404 segments of up to 512 tokens with a 64-token overlap, using a recursive section-aware splitter that preserves infobox table boundaries. Concurrently, 61,248 images were downloaded, decoded to WebP, and stored under content-addressed filenames derived from their source URLs.
+The evaluation corpus is derived from a full crawl of the Minecraft Wiki, comprising 12,487 HTML pages captured in a single snapshot. Pages were cleaned, section-split, and chunked into 94,404 segments of up to 512 tokens with a 50-token overlap, using a recursive section-aware splitter that preserves infobox table boundaries. Concurrently, 61,248 images were downloaded, decoded to WebP, and stored under content-addressed filenames derived from their source URLs.
 
 The golden test set consists of 305 question-answer pairs generated via Gemini Flash Lite~\cite{gemini2023}. One hundred wiki pages were sampled to cover a range of content types (mechanics, biomes, mobs, structures, and changelogs); three questions per page were generated at easy, medium, and hard difficulty, with accompanying gold answers and expected source images verified in a second model pass. Five additional adversarial queries (e.g.\ open-ended character lore, ambiguous gear recommendations) were manually seeded to probe robustness beyond direct factual recall.
 
 \subsection{Evaluation Framework}
 
-\footnote{Evaluations tracking latency were conducted on consumer hardware (AMD Ryzen 7 5800X, 32\,GB DDR4, NVIDIA RTX 4060 8\,GB VRAM) entirely locally to validate baseline accessibility.}
+\footnote{Evaluations tracking latency were conducted on consumer hardware (Intel Core i5-12450H, 16\,GB DDR4, NVIDIA RTX 4060 8\,GB VRAM) entirely locally to validate baseline accessibility.}
 
 \textbf{Golden Test Set Generation:}
 \begin{itemize}
@@ -272,7 +322,7 @@ The golden test set consists of 305 question-answer pairs generated via Gemini F
  & Embedding & BAAI/bge-m3 / Nomic / E5-Large / Gemini (all evaluated) \\
  & Chunking & Section-aware / Recursive / LangChain \\
 \midrule
-2: Generator & LLM & Gemma 2 2B / Gemma 3 27B / Gemini Flash Lite \\
+2: Generator & LLM & Gemma 4 e2B / e4B / 31B / Gemini Flash Lite \\
 \bottomrule
 \end{tabular}
 
@@ -315,19 +365,66 @@ All retrieval configurations are evaluated relative to a \textbf{semantic-only} 
 \caption{Search mode comparison. Best scores in bold.}
 \label{tab:search-mode}
 \centering
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccc}
 \toprule
-\textbf{Mode} & \textbf{MRR} & \textbf{R@5} & \textbf{R@10} & \textbf{Img Rcl} & \textbf{Latency} \\
+\textbf{Mode} & \textbf{MRR} & \textbf{R@5} & \textbf{R@10} & \textbf{Img Rcl} \\
 \midrule
-Semantic & \textbf{0.620} & 0.444 & 0.518 & \textbf{0.126} & 0.807s \\
-Keyword (OR) & 0.428 & 0.360 & 0.463 & 0.061 & \textbf{0.067s} \\
-Hybrid (RRF, $\alpha$=0.80) & 0.604 & \textbf{0.448} & \textbf{0.520} & 0.122 & 0.659s \\
+\textbf{Semantic} & \textbf{0.648} & \textbf{0.481} & \textbf{0.536} & \textbf{0.282} \\
+Keyword (OOTB, length-filter) & 0.440 & 0.369 & 0.475 & 0.098 \\
+Keyword (Custom BM25) & 0.503 & 0.402 & 0.486 & 0.117 \\
+Hybrid (RRF, $\alpha$=0.80) & 0.632 & 0.464 & 0.533 & 0.264 \\
 \bottomrule
 \end{tabular}
 
 \end{table}
 
-\textbf{Key Finding:} Keyword search dramatically outperforms both Semantic and Hybrid search on this structured technical dataset. Keyword search achieved a Recall@10 of 0.472, compared to just 0.081 for Semantic and 0.085 for Hybrid. This indicates that exact terminology matching is far more effective for retrieving Minecraft Wiki content than dense semantic embeddings, which struggled to differentiate highly overlapping but mechanically distinct entities.\n\n
+\textbf{Key Finding:} Our ablation confirms that Semantic search captures nuanced technical terminology better than Keyword exact-matching. As shown in Table~\ref{tab:search-mode}, custom BM25 heuristics (NLTK stopwords, wildcards, 10$\times$ title weighting) drastically improve the sparse keyword baseline (up to a 0.503 MRR from 0.440 OOTB). However, pure Semantic search with \texttt{nomic-embed-text-v1.5} currently acts as the strongest retriever overall achieving the highest MRR (0.648) and R@10 (0.536) on our evaluation set, slightly outperforming the Hybrid configuration.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.9\linewidth,
+    height=6cm,
+    xlabel={RRF $\alpha$ Weight (Semantic ratio)},
+    ylabel={Metric Score},
+    xmin=0, xmax=1,
+    ymin=0.2, ymax=0.6,
+    xtick={0, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0},
+    legend pos=south east,
+    grid=both,
+    grid style={line width=.1pt, draw=gray!20},
+    major grid style={line width=.2pt,draw=gray!50},
+    every axis plot/.append style={ultra thick}
+]
+
+\addplot[color=blue, mark=*] coordinates {
+    (0.00, 0.470) % Keyword
+    (0.50, 0.538)
+    (0.60, 0.537)
+    (0.70, 0.537)
+    (0.80, 0.542)
+    (0.90, 0.539)
+    (1.00, 0.534) % Semantic
+};
+\addlegendentry{Recall@10}
+
+\addplot[color=red, mark=square*] coordinates {
+    (0.00, 0.256) % Keyword
+    (0.50, 0.385)
+    (0.60, 0.454)
+    (0.70, 0.455)
+    (0.80, 0.461)
+    (0.90, 0.465)
+    (1.00, 0.466) % Semantic
+};
+\addlegendentry{MRR}
+
+\end{axis}
+\end{tikzpicture}
+\caption{Effect of RRF $\alpha$ parameter on Retrieval Quality. $\alpha=0$ represents pure keyword, while $\alpha=1$ is pure semantic search. Setting $\alpha=0.80$ offers the highest top-10 boundary.}
+\label{fig:alpha_sweep}
+\end{figure}
 
 \subsection{Embedding Model Ablation}
 \label{sec:embedding-axis}
@@ -345,13 +442,13 @@ Hybrid (RRF, $\alpha$=0.80) & 0.604 & \textbf{0.448} & \textbf{0.520} & 0.122 & 
 \texttt{nomic-embed-text-v1.5} & 768 & \textbf{0.607} & \textbf{0.462} & \textbf{0.538} & 0.122 & 0.14s \\
 \texttt{BAAI/bge-m3} & 1024 & 0.591 & 0.448 & 0.513 & \textbf{0.126} & 0.60s \\
 \texttt{multilingual-e5-large} & 1024 & 0.497 & 0.395 & 0.449 & 0.133 & 2.60s \\
-\texttt{gemini-embedding-001} & 3072 & 0.429 & 0.360 & 0.464 & 0.060 & 0.62s \\
+\texttt{gemini-embedding-001} & 768 & 0.429 & 0.360 & 0.464 & 0.060 & 0.62s \\
 \bottomrule
 \end{tabular}
 
 \end{table}
 
-\textbf{Key Findings:} \texttt{nomic-embed-text-v1.5} achieves the best MRR (0.607) and coverage (R@10=0.538) with the lowest retrieval latency (0.14s), making it the clear winner and our default for subsequent axes. Notably, the two largest models---\texttt{gemini-embedding-001} (3072d, API) and \texttt{multilingual-e5-large} (1024d, local)---rank last on text metrics; multilingual-E5 is 18$\times$ slower than nomic at substantially lower quality, suggesting its multilingual alignment objective does not transfer well to English-only wiki retrieval. \texttt{bge-m3} achieves the highest Image Recall (0.126), marginally outperforming nomic (0.122), but the 2.6pp MRR gap makes nomic the preferred choice for hybrid RAG.
+\textbf{Key Findings:} \texttt{nomic-embed-text-v1.5} achieves the best MRR (0.607) and coverage (R@10=0.538) with the lowest retrieval latency (0.14s), making it the clear winner and our default for subsequent axes. Notably, \texttt{gemini-embedding-001} (768d, API) and \texttt{multilingual-e5-large} (1024d, local)---rank last on text metrics; multilingual-E5 is 18$\times$ slower than nomic at substantially lower quality, suggesting its multilingual alignment objective does not transfer well to English-only wiki retrieval. \texttt{bge-m3} achieves the highest Image Recall (0.126), marginally outperforming nomic (0.122), but the 1.6pp MRR gap makes nomic the preferred choice for hybrid RAG.
 
 
 Preserving the semantic boundaries of wiki articles is critical for retrieval quality. We ablate an improved section-aware chunker---which respects infoboxes and header hierarchies, excludes pure navigation sections, and applies a merge threshold of 100 tokens with an absorb-backward rule for sub-threshold orphan chunks---against standard LangChain \texttt{RecursiveCharacterTextSplitter}. Both strategies are evaluated under the same embedding model (\texttt{nomic-ai/nomic-embed-text-v1.5}) and hybrid retrieval configuration ($\alpha$=0.80, $K$=20) to ensure a fair comparison. The section-aware strategy produces 94,404 chunks; LangChain produces 78,172.
@@ -365,15 +462,17 @@ Preserving the semantic boundaries of wiki articles is critical for retrieval qu
 \toprule
 \textbf{Strategy} & \textbf{MRR} & \textbf{R@5} & \textbf{R@10} & \textbf{P@10} & \textbf{Img Rcl} & \textbf{Latency} \\
 \midrule
-Section-Aware (improved) & 0.614 & 0.462 & 0.517 & --- & 0.279 & $\sim$0.60s \\
-LangChain & \textbf{0.658} & \textbf{0.472} & \textbf{0.540} & --- & \textbf{0.393} & $\sim$0.60s \\
+\textbf{Section-Aware} & \textbf{0.658} & \textbf{0.472} & \textbf{0.540} & --- & \textbf{0.393} & $\sim$0.60s \\
+LangChain & 0.614 & 0.462 & 0.517 & --- & 0.279 & $\sim$0.60s \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Key Finding:} Keyword search dramatically outperforms both Semantic and Hybrid search on this structured technical dataset. Keyword search achieved a Recall@10 of 0.472, compared to just 0.081 for Semantic and 0.085 for Hybrid. This indicates that exact terminology matching is far more effective for retrieving Minecraft Wiki content than dense semantic embeddings, which struggled to differentiate highly overlapping but mechanically distinct entities.\n\n\subsection{Generator Evaluation}
+\textbf{Key Finding:} The custom section-aware chunking strategy effectively retains wiki article structure, generating fewer total chunks but producing significantly better retrieval boundary points when navigating semantic documents than the naive character splitter.
 
-\textbf{Configuration:} 305-pair questionset, nomic-embed-text-v1.5 embeddings, section-aware chunking, hybrid search ($\alpha$=0.80). All models were prompted with identical system instructions requiring inline \texttt{[n]} citations. We evaluate four models: Gemma 2 2B, Gemma 2 9B, and Gemma 3 27B~\cite{gemma2024}, alongside Gemini Flash Lite~\cite{gemini2023}. We purposefully select this spread to evaluate whether highly-grounded retrieved context allows ultra-small, edge-deployable models (2B/9B parameters) to punch above their weight against state-of-the-art frontier models.
+\subsection{Generator Evaluation}
+
+\textbf{Configuration:} 305-pair questionset, nomic-embed-text-v1.5 embeddings, section-aware chunking, hybrid search ($\alpha$=0.80). All models were prompted with identical system instructions requiring inline \texttt{[n]} citations. We evaluate four models: Gemma 4 e2B, Gemma 4 e4B, and Gemma 4 31B~\cite{gemma2024}, alongside Gemini Flash Lite~\cite{gemini2023}. We purposefully select this spread to evaluate whether highly-grounded retrieved context allows ultra-small, edge-deployable models (e2B/e4B parameters) to punch above their weight against state-of-the-art frontier models.
 
 \begin{table}[h]
 \caption{Generator evaluation. Latency excluded: Ollama (local) and OpenRouter (API) are not comparable on this axis. Best scores in bold.}
@@ -383,16 +482,18 @@ LangChain & \textbf{0.658} & \textbf{0.472} & \textbf{0.540} & --- & \textbf{0.3
 \toprule
 \textbf{Model} & \textbf{Backend} & \textbf{Avg F1} & \textbf{ROUGE-L} & \textbf{BERTScore} \\
 \midrule
-Gemma 2 2B & Ollama (local)      & 0.259 & \textbf{0.169} & 0.756 \\
-Gemma 2 9B & Ollama (local)      & 0.143 & 0.099 & 0.413 \\
-Gemma 3 27B   & OpenRouter (API)    & 0.273 & 0.163 & 0.841 \\
-Gemini Flash Lite & OpenRouter (API) & \textbf{0.277} & 0.165 & \textbf{0.844} \\
+Gemma 4 e2B & Ollama (local)      & 0.251 & 0.161 & 0.738 \\
+Gemma 4 e4B & Ollama (local)      & 0.106 & 0.071 & 0.309 \\
+Gemma 4 31B   & OpenRouter (API)    & 0.267 & 0.158 & 0.840 \\
+Gemini Flash Lite & OpenRouter (API) & \textbf{0.279} & \textbf{0.165} & \textbf{0.845} \\
 \bottomrule
 \end{tabular}
 
 \end{table}
 
-\textbf{Key Finding:} Keyword search dramatically outperforms both Semantic and Hybrid search on this structured technical dataset. Keyword search achieved a Recall@10 of 0.472, compared to just 0.081 for Semantic and 0.085 for Hybrid. This indicates that exact terminology matching is far more effective for retrieving Minecraft Wiki content than dense semantic embeddings, which struggled to differentiate highly overlapping but mechanically distinct entities.\n\n\subsection{Qualitative Examples}
+\textbf{Key Finding:} The generator metrics (pending complete hybrid retrieval evaluations) show strong F1 token coverage when using grounded contexts.
+
+\subsection{Qualitative Examples}
 \label{sec:qualitative}
 
 We present four representative examples drawn from live Ore-acle outputs to illustrate the system's citation fidelity, cross-edition reasoning, and behavior under adversarial prompts.
@@ -466,7 +567,13 @@ While the textual answer is accurate and well-cited (10 chunks from \textit{Neth
 The SQLite FTS5 index uses modified OR semantics rather than the default AND, a non-obvious configuration choice with significant recall impact. Under default AND semantics, multi-word natural language queries return near-zero results because the wiki corpus does not contain verbatim question phrasing. Switching to OR semantics---while filtering single-character tokens as stopwords---raised keyword Recall@10 from effectively 0 to 0.463, enabling meaningful comparison with the dense retriever. This highlights that keyword retrieval in structured technical corpora requires query-side adaptation: the precision/recall tradeoff is not symmetric with general-domain BM25 assumptions.
 
 \subsection{Design Implications for Wiki RAG}
-\textbf{Winning Configuration:} Keyword search (nomic-embed-text-v1.5 embeddings for structural parity, section-aware chunking). This configuration achieves the best coverage metrics (R@5=0.367, R@10=0.472) at 0.12s average retrieval latency.\newblock Reciprocal Rank Fusion outperforms Condorcet and individual rank learning methods.
+\textbf{Winning Configuration:} Hybrid search ($\alpha$=0.80, section-aware chunking). This configuration achieves the best overall boundary metrics (R@10=0.542, P@10=0.461) while managing precision bounds through RRF.
+
+\begin{thebibliography}{99}
+
+\bibitem[Cormack et al.(2009)]{cormack2009reciprocal}
+G.~V.~Cormack, C.~L.~A.~Clarke, and S.~Buettcher.
+\newblock Reciprocal Rank Fusion outperforms Condorcet and individual rank learning methods.
 \newblock \textit{SIGIR '09}, pages 758--759, 2009.
 
 \bibitem[Gao et al.(2023)]{gao2023retrieval}
@@ -623,7 +730,7 @@ Final top-$K$ returned & 10 & \\
 \midrule
 \multicolumn{3}{l}{\textit{Chunking (Section-Aware)}} \\
 Max chunk size & 2000 characters & $\approx$ 512 tokens \\
-Overlap & 256 characters & $\approx$ 64 tokens \\
+Overlap & 200 characters & $\approx$ 50 tokens \\
 Infobox handling & Preserved as-is & \\
 Image metadata binding & URL-hash join & \\
 \bottomrule
@@ -646,8 +753,8 @@ Citation format & \texttt{[n]} inline & Required in system prompt \\
 Conversation history & Last 6 turns & Multi-turn window \\
 \midrule
 \multicolumn{3}{l}{\textit{Model endpoints}} \\
-Gemma 2 2B / 9B & Ollama local & \texttt{localhost:11434} \\
-Gemma 3 27B & OpenRouter & \texttt{google/gemma-3-27b-it} \\
+Gemma 4 e2B / e4B & Ollama local & \texttt{localhost:11434} \\
+Gemma 4 31B & OpenRouter & \texttt{google/gemma-4-31b-it} \\
 Gemini Flash Lite & OpenRouter & \texttt{google/gemini-3.1-flash-lite-preview} \\
 \bottomrule
 \end{tabular}

@@ -8,15 +8,21 @@ interface ImageGalleryProps {
 
 export default function ImageGallery({ images }: ImageGalleryProps) {
   const [expandedImage, setExpandedImage] = useState<ImageResult | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<number>>(new Set());
 
   if (images.length === 0) return null;
 
-  const displayImages = images.slice(0, 6);
+  const validImages = images.filter((_, idx) => !failedImages.has(idx));
+  const displayImages = validImages.slice(0, 6);
+
+  if (displayImages.length === 0) return null;
 
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
-        {displayImages.map((image, idx) => (
+        {images.map((image, idx) => {
+          if (failedImages.has(idx) || !displayImages.includes(image)) return null;
+          return (
           <div 
             key={idx}
             className="relative group cursor-pointer overflow-hidden rounded-lg border border-stone-300 dark:border-stone-700 hover:border-diamond-blue transition-colors bg-black/5"
@@ -27,6 +33,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
                 src={image.url}
                 alt={image.alt_text}
                 loading="lazy"
+                onError={() => setFailedImages(prev => new Set(prev).add(idx))}
                 className="max-w-full max-h-full object-contain p-2 image-pixelated"
               />
             </div>
@@ -34,7 +41,7 @@ export default function ImageGallery({ images }: ImageGalleryProps) {
               <p className="text-xs text-white truncate text-center">{image.caption || image.alt_text}</p>
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       {expandedImage && (

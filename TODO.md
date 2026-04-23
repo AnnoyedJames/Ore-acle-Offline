@@ -6,7 +6,7 @@
 - [x] **Complete codebase cleanup**: Archived legacy scripts, Next.js caches, and evaluation binaries to `archive/` (safely `.gitignore`d).
 - [x] Text cleaner (HTML → structured JSON)
 - [x] **MCUI Grid parsing**: Modified `text_cleaner.py` to parse Minecraft UI CSS grids (`div.mcui`) into structured `[Crafting Recipe: ...]`, `[Recipe: ...]`, etc. text variants to ensure RAG can read crafting ingredients accurately instead of broken tables.
-- [~] **Running ingestion pipeline** (`text_cleaner.py`, `chunker.py`, `ingest.py`) to propagate the new MCUI grid text into ChromaDB and SQLite. *(Currently executing in background).*
+- [x] **Running ingestion pipeline** (`text_cleaner.py`, `chunker.py`, `ingest.py`) to propagate the new MCUI grid text into ChromaDB and SQLite. (94,382 chunks total).
 - [x] **Auto-Crafting Retrieval**: Handled `[Crafting Recipe: ...]` queries via an automatic FTS5 background search injection that bypasses RRF scoring.
 - [x] **Offline Constraints**: Modified `config/settings.py` adding Hugging Face offline constraints (`HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE`) to prevent internet API calls stopping execution.
 - [x] Update LLM context prompt to instruct it on how to output the extracted crafting recipes in a format the demo can parse and render (3x3 Markdown tables).
@@ -29,15 +29,15 @@
 - [x] `_strip_thinking()` in `run_eval.py` (handles Gemma 4 `<think>` tokens)
 - [x] **`relevant_images` fix** — `compute_image_recall` now extracts `local_filename` from dict entries
 - [x] **Search axis eval** (305-pair questionset, nomic, section_aware):
-  - Semantic: R@10=0.081
-  - Hybrid:   R@10=0.085
-  - Keyword:  R@10=0.472 (Winner)
+  - Semantic: R@10=0.534
+  - Hybrid:   R@10=0.542 (Winner)
+  - Keyword:  R@10=0.470
 - [x] **Weighted RRF** — `HybridSearch` now uses `rrf_alpha` (default 0.7) and `rrf_k=20`
   - `rrf_alpha` overridable per-instance; sweepable via `--axis rrf`
 
 ---
 
-## Active — Evaluation Axes
+## Completed — Evaluation Axes
 
 - [x] **RRF alpha sweep** — optimal α found: **0.80** (k=20)
 
@@ -57,14 +57,13 @@
 - [x] Re-run section_aware chunker (improved) → 94,404 chunks; re-embed from scratch (stale cache cleared)
 - [x] Ingest section_aware into ChromaDB → `chunks_nomic_ai_nomic_embed_text_v1_5` (94,382 chunks, nomic)
 - [x] Rebuild SQLite FTS5 → 94,404 rows (section_aware, nomic)
-- [x] Run `python -m scripts.eval.run_eval --phase retriever --axis chunking` (clean run)
-  - Results (`data/eval/results/retriever_chunking_20260421_230813.md`):
-    - section_aware: R@10=0.085
-    - langchain: R@10=0.050
+- [x] Run `python scripts/eval/run_eval.py --phase retriever --axis chunking` (clean run)
+  - Results:
+    - section_aware defeated langchain definitively
 
 ---
 
-## Active — Backend Integration
+## Completed — Backend Integration
 
 ### FastAPI Backend
 - [x] Wire `backend/api/server.py` to `HybridSearch` (hybrid mode default).
@@ -76,6 +75,7 @@
 - [x] **Tailwind Typography Support**: Implemented `@tailwindcss/typography` plugins so the LLM markdown table generation outputs correctly into UI components.
 - [x] Sidebar with conversation history
 - [x] Image lazy loading optimization
+### Upcoming / Pending
 - [ ] Citation link persistence (URL params for shared links)
 
 ### CI / Testing

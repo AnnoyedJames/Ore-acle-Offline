@@ -100,9 +100,9 @@ class HybridSearch:
                                     filter_page_types=filter_types or [])
         return results
 
-    def _keyword_search(self, query: str) -> list[dict]:
+    def _keyword_search(self, query: str, mode: str = "custom") -> list[dict]:
         """Search SQLite FTS5 for matching chunks."""
-        return self.sqlite.search(query, limit=self.keyword_candidates)
+        return self.sqlite.search(query, limit=self.keyword_candidates, mode=mode)
 
     def _rrf_merge(
         self,
@@ -254,16 +254,18 @@ class HybridSearch:
         if mode == "semantic":
             semantic_results = self._semantic_search(query, filter_types, query_vec=query_vec)
             keyword_results = []
-        elif mode == "keyword":
+        elif mode in ("keyword", "keyword_ootb", "keyword_custom"):
+            kw_mode = "ootb" if mode == "keyword_ootb" else "custom"
             semantic_results = []
-            keyword_results = self._keyword_search(query)
+            keyword_results = self._keyword_search(query, mode=kw_mode)
         else:  # hybrid
+            kw_mode = "ootb" if mode == "hybrid_ootb" else "custom"
             # Run semantic and keyword searches in parallel
             with ThreadPoolExecutor(max_workers=2) as executor:
                 sem_future = executor.submit(
                     self._semantic_search, query, filter_types, query_vec
                 )
-                kw_future = executor.submit(self._keyword_search, query)
+                kw_future = executor.submit(self._keyword_search, query, kw_mode)
                 semantic_results = sem_future.result()
                 keyword_results = kw_future.result()
             # Semantic quality gate: if the best cosine similarity is below
@@ -276,7 +278,6 @@ class HybridSearch:
                         f"Semantic quality gate: best_sim={best_sim:.3f} < 0.55, "
                         f"alpha {self.rrf_alpha}→{_alpha_override}"
                     )
-            keyword_results = self._keyword_search(query)
 
         logger.info(
             f"Query: '{query[:50]}' \u2192 "

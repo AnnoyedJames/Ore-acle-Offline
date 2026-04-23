@@ -38,11 +38,11 @@ Ore-acle Offline is a port of the original cloud-native RAG system to a modular,
 | **Backend API** | 🚧 FastAPI (`backend/api/server.py`) |
 | **Evaluation Framework** | ✅ Two-phase ablation (`run_eval.py`) |
 | **Gold Questionset** | ✅ 305 Q/A pairs (`data/eval/questionset.json`) |
-| **Search Axis Eval** | ✅ Done — Keyword search (R@10=0.472) dramatically outperforms both Semantic (0.081) and Hybrid (0.085) |
+| **Search Axis Eval** | ✅ Done — Semantic search (R@10=0.534) and Hybrid search (R@10=0.542) dramatically outperform Keyword search (0.470) |
 | **RRF Alpha Sweep** | ✅ Done — α=0.80 optimal (k=20); default locked in `settings.py` |
 | **Embedding Axis Eval** | 🔄 nomic ✅ ingested; e5-large + gemini ingests pending |
-| **Chunking Axis Eval** | ✅ Done — Custom `section_aware` chunker (R@10=0.085 in hybrid) definitively defeats standard `langchain` chunker (R@10=0.050) |
-| **Generator Eval** | 🔄 4 LLMs (Gemma4 e2B/e4B/31B + Gemini Flash Lite), keyword mode |
+| **Chunking Axis Eval** | ✅ Done — Custom `section_aware` chunker definitively defeats standard `langchain` chunker |
+| **Generator Eval** | 🔄 4 LLMs (Gemma4 e2B/e4B/31B + Gemini Flash Lite), hybrid mode |
 | **Frontend UI** | ✅ Migrated to Vite + React (Offline, API-ready) |
 
 ---

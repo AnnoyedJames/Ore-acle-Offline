@@ -83,8 +83,8 @@ All settings are local-first.
 - **Results dir**: `data/eval/results/`
 
 
-**Narrative**: Hybrid search (weighted RRF, α=0.80) was initially the chosen retrieval mode. However, recent benchmarks revealed that pure Keyword search heavily outperforms Semantic and Hybrid on our specific task. Keyword Recall@10 is 0.472, vs Semantic 0.081 and Hybrid 0.085. Chunking comparison also proved that the custom semantic `section_aware` chunker (Recall@10=0.085) defeated naive LangChain chunker (Recall@10=0.050). The overall retrieval system performs best as a Keyword-only search with the custom chunker.
-**Remaining eval axes**: Embedding axis (nomic/e5-large/gemini ingests pending), Generator eval (4 LLMs: Gemma 4 e2B/e4B/31B + Gemini Flash Lite, uses hybrid mode).
+**Narrative**: Hybrid search (weighted RRF, α=0.80) is the chosen retrieval mode. After fixing vector staleness issues, benchmarks confirmed Semantic search significantly outperforms pure Keyword on our specific task. Semantic Recall@10 is 0.534 and Keyword Recall@10 is 0.470. However, Hybrid Search (α=0.80) achieves the absolute best results with a Recall@10 of 0.542 and MRR of 0.461. Chunking comparison also proved that the custom semantic `section_aware` chunker definitively defeats naive LangChain chunking. The overall retrieval system performs best in Hybrid mode with the custom chunker.
+**Completed eval axes**: Embedding axis (nomic-embed-text-v1.5 outperformed multilingual-e5-large and gemini), Generator eval (4 LLMs tested; Gemini Flash Lite and Gemma 4 31B achieved highest scores, while Gemma 4 e2B proved highly capable for its size).
 
 ## Code Style
 - **Python**: Typed (`mypy` compliant), `black` formatted.
@@ -104,12 +104,12 @@ Same constraints as original:
 - [x] Local Keyword DB (SQLite FTS5) — 121,618 rows, OR-query semantics
 - [x] Evaluation Framework — `run_eval.py` two-phase ablation
 - [x] Gold Questionset — 305 pairs at `data/eval/questionset.json`
-- [x] Search axis eval — Keyword search (R@10=0.472) dramatically outperforms both Semantic (0.081) and Hybrid (0.085).
-- [x] Chunking axis eval — Custom `section_aware` chunker (R@10=0.085 in hybrid) definitively defeats standard `langchain` chunker (R@10=0.050).
-- [x] Weighted RRF — `rrf_alpha=0.80`, `rrf_k=20` (locked after sweep; configurable per-instance)
+- [x] Search axis eval — Semantic search (R@10=0.534) and Hybrid search (R@10=0.542) dramatically outperform Keyword search (0.470).
+- [x] Chunking axis eval — Custom `section_aware` chunker definitively defeats standard `langchain` chunker.
+- [x] Weighted RRF — `rrf_alpha=0.80`, `rrf_k=20` (locked after sweep; highest MRR at 0.461)
 - [x] FastAPI Backend
 - [x] Paper Outline Structure (`latex_paper/main.tex`)
 - [x] RRF alpha sweep — α=0.80 optimal; hybrid is preferred RAG mode
-- [ ] Embedding axis eval (ingests for nomic/e5-large/gemini pending)
-- [ ] Generator eval (4 LLMs: Gemma 4 e2B/e4B/31B + Gemini Flash Lite, `--phase generator --search-mode keyword`)
+- [x] Embedding axis eval (nomic-embed-text-v1.5 achieved best MRR of 0.607)
+- [x] Generator eval (4 LLMs tested: Gemma 4 e2B/e4B/31B + Gemini Flash Lite via OpenRouter/Ollama)
 

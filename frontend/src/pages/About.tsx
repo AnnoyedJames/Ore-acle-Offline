@@ -54,7 +54,7 @@ const PIPELINE_STEPS: PipelineStep[] = [
     title: 'Image Download',
     subtitle: 'image_downloader.py',
     description:
-      '61,248 images downloaded from the wiki CDN at 5 req/s. Content-addressed by MD5 hash, converted to WebP, and stored on the local filesystem.',
+      '61,000+ images downloaded from the wiki CDN at 5 req/s. Content-addressed by MD5 hash, converted to WebP, and stored on the local filesystem.',
     color: 'text-ore-gold',
   },
   {
@@ -70,7 +70,7 @@ const PIPELINE_STEPS: PipelineStep[] = [
     title: 'Chunking',
     subtitle: 'chunker.py',
     description:
-      'Recursive text splitting at 512 tokens with 50-token overlap. Each chunk retains page title, URL, section heading, and verbatim text for NotebookLM-style citations.',
+      'Custom section-aware chunker. Splits content using heading boundaries, preserving list structures and metadata. Outperforms standard LangChain recursive splitting.',
     color: 'text-redstone-red',
   },
   {
@@ -132,7 +132,7 @@ const TECH_STACK: TechCard[] = [
     name: 'Gemma / Gemini (OpenRouter)',
     role: 'Chat Completion',
     description:
-      'Generates answers with inline citations. Evaluated effectively with edge-deployable local models (Gemma 2 2B/9B) alongside flash-class cloud models.',
+      'Generates answers with inline citations. Evaluated effectively with edge-deployable local models (Gemma 4 e2B/e4B) alongside flash-class cloud models.',
     tier: 'Local / API',
     link: '#',
     color: 'border-redstone-red',
@@ -150,9 +150,9 @@ const TECH_STACK: TechCard[] = [
 
 const STATS: Stat[] = [
   { value: '12,487', label: 'Wiki Pages' },
-  { value: '61,248', label: 'Images' },
+  { value: '61,000+', label: 'Images' },
   { value: '768d', label: 'Embedding Dimensions' },
-  { value: '94,404', label: 'Text Chunks' },
+  { value: '121,080', label: 'Text Chunks' },
 ];
 
 function PipelineStepCard({ step, index, isLast }: { step: PipelineStep; index: number; isLast: boolean }) {
@@ -283,11 +283,10 @@ export default function About() {
 
               <div className="glass glass-light dark:glass-dark rounded-lg p-3 border border-ore-gold/30 mt-3">
                 <h4 className="font-bold text-ore-gold mb-1 flex items-center gap-1.5">
-                  <Layers className="w-4 h-4" /> Reciprocal Rank Fusion (k=60)
+                  <Layers className="w-4 h-4" /> Weighted Reciprocal Rank Fusion (k=20, α=0.80)
                 </h4>
                 <p className="text-[11px] sm:text-xs leading-relaxed">
-                  Results from both strategies are merged with RRF scoring. Each result gets a score of 1/(k + rank) from
-                  each list, and the combined scores determine the final top-10 chunks sent to the language model.
+                  Results from both strategies are merged with weighted RRF scoring. Using a semantic weight (α) of 0.80 and k=20, the combined scores determine the final top-10 chunks sent to the language model.
                 </p>
               </div>
 

@@ -72,7 +72,7 @@ DEFAULT_CHUNKING = "section_aware"
 
 # Axes
 EMBEDDING_AXIS_MODELS = list(EMBEDDING_MODELS.keys())
-SEARCH_AXIS_MODES = ["semantic", "keyword", "hybrid"]
+SEARCH_AXIS_MODES = ["semantic", "keyword_ootb", "keyword", "hybrid"]
 RRF_ALPHA_SWEEP = [0.5, 0.6, 0.7, 0.8, 0.9]
 CHUNKING_AXIS_STRATEGIES = ["section_aware", "langchain"]
 
