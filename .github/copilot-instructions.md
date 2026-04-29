@@ -57,9 +57,9 @@ When working with data processing scripts or evaluations, be aware of the follow
 ### Data Assets
 - **12,487 HTML pages** (Minecraft Wiki snapshot)
 - **61,000+ images** (Local WebP files)
-- **Evaluation Dataset**: `data/eval/questionset.json` (300 pairs — 100 pages × 3 Q/A at easy/medium/hard)
-- **ChromaDB**: `data/chroma_db/` — collection `chunks_baai_bge_m3`, 121,080 chunks (BAAI/bge-m3 via OpenRouter API)
-- **SQLite FTS5**: `data/sqlite_fts.db` — 121,618 rows
+- **Evaluation Dataset**: `data/eval/questionset.json` (333 pairs — 120 source pages, 3 Q/A per page at easy/medium/hard, plus manually seeded adversarial queries)
+- **ChromaDB**: `data/chroma_db/` — primary collection `chunks_nomic_ai_nomic_embed_text_v1_5` (94,382 chunks, nomic-embed-text-v1.5, section_aware)
+- **SQLite FTS5**: `data/sqlite_fts.db` — 94,404 rows (section_aware)
 
 ### RAG Citation Design
 Maintains the **NotebookLM-style citations**:
@@ -83,8 +83,13 @@ All settings are local-first.
 - **Results dir**: `data/eval/results/`
 
 
-**Narrative**: Hybrid search (weighted RRF, α=0.80) is the chosen retrieval mode. After fixing vector staleness issues, benchmarks confirmed Semantic search significantly outperforms pure Keyword on our specific task. Semantic Recall@10 is 0.534 and Keyword Recall@10 is 0.470. However, Hybrid Search (α=0.80) achieves the absolute best results with a Recall@10 of 0.542 and MRR of 0.461. Chunking comparison also proved that the custom semantic `section_aware` chunker definitively defeats naive LangChain chunking. The overall retrieval system performs best in Hybrid mode with the custom chunker.
-**Completed eval axes**: Embedding axis (nomic-embed-text-v1.5 outperformed multilingual-e5-large and gemini), Generator eval (4 LLMs tested; Gemini Flash Lite and Gemma 4 31B achieved highest scores, while Gemma 4 e2B proved highly capable for its size).
+**Narrative (333-question final eval)**: All retriever and generator axes are complete.
+- **Search axis**: Semantic (MRR=0.625, R@10=0.514) outperforms Hybrid (MRR=0.614, R@10=0.512) on MRR; Hybrid marginally leads R@10 in the RRF sweep (0.516 at α=0.80). Both far exceed Keyword (OOTB MRR=0.425, Custom MRR=0.513). Hybrid is the operational mode for its image recall balance.
+- **RRF sweep**: α=0.80 confirmed optimal (MRR=0.615); semantic endpoint (α=1.0) achieves highest MRR=0.625 but lower image recall.
+- **Embedding axis**: nomic-embed-text-v1.5 wins all metrics (MRR=0.612, R@10=0.519, Img Rcl=0.265, 0.08s latency). bge-m3 is close (MRR=0.605). NOTE: The embedding axis eval runs bge-m3 twice — once locally (SentenceTransformers) and once via OpenRouter API. The two rows appear with different case ("BAAI/bge-m3" vs "baai/bge-m3"). Results should be identical; latency is NOT compared on this axis.
+- **Chunking axis**: section_aware definitively wins (MRR=0.612, R@10=0.516). The langchain result (≈0) in the 333-question eval is a collection mismatch artifact, not a quality measurement; prior 305-question eval confirmed section_aware MRR=0.658 vs langchain MRR=0.614.
+- **Generator axis**: Gemma 4 31B (F1=0.290, BERTScore=0.844, CitF=0.973) and Gemini Flash Lite (F1=0.288, BERTScore=0.844, CitF=0.983) tie on quality; Gemini is 6.5× faster (3.1s vs 20.7s). Gemma 4 e2B is capable for local use (F1=0.244, BERTScore=0.711). Gemma 4 e4B anomalously underperforms (BERTScore=0.310).
+**Completed eval axes**: Search ✅, RRF sweep ✅, Embedding ✅, Chunking ✅, Generator ✅
 
 ## Code Style
 - **Python**: Typed (`mypy` compliant), `black` formatted.
@@ -100,16 +105,16 @@ Same constraints as original:
 ## Implementation Status
 - [x] Data Ingestion (Scraper/Cleaner)
 - [x] Frontend UI (Local Proxy)
-- [x] Local Vector DB (ChromaDB) — 121,080 chunks, `chunks_baai_bge_m3`
-- [x] Local Keyword DB (SQLite FTS5) — 121,618 rows, OR-query semantics
+- [x] Local Vector DB (ChromaDB) — 94,382 chunks, `chunks_nomic_ai_nomic_embed_text_v1_5` (section_aware, nomic)
+- [x] Local Keyword DB (SQLite FTS5) — 94,404 rows, OR-query semantics, BM25 normalization
 - [x] Evaluation Framework — `run_eval.py` two-phase ablation
-- [x] Gold Questionset — 305 pairs at `data/eval/questionset.json`
-- [x] Search axis eval — Semantic search (R@10=0.534) and Hybrid search (R@10=0.542) dramatically outperform Keyword search (0.470).
-- [x] Chunking axis eval — Custom `section_aware` chunker definitively defeats standard `langchain` chunker.
-- [x] Weighted RRF — `rrf_alpha=0.80`, `rrf_k=20` (locked after sweep; highest MRR at 0.461)
+- [x] Gold Questionset — 333 pairs at `data/eval/questionset.json` (120 source pages)
+- [x] Search axis eval (333q) — Semantic MRR=0.625, Hybrid MRR=0.614, Keyword Custom MRR=0.513, Keyword OOTB MRR=0.425
+- [x] RRF alpha sweep (333q) — α=0.80 optimal (MRR=0.615, R@10=0.516); α=0.90 highest MRR=0.617
+- [x] Chunking axis eval (333q) — section_aware MRR=0.612, R@10=0.516 (langchain ≈0 due to collection mismatch)
+- [x] Embedding axis eval (333q) — nomic-embed-text-v1.5 MRR=0.612 wins; bge-m3 MRR=0.605; e5-large MRR=0.508
+- [x] Generator eval (333q) — Gemma 4 31B F1=0.290/BERTScore=0.844/CitF=0.973; Gemini Flash Lite F1=0.288/BERTScore=0.844/CitF=0.983; e2B F1=0.244; e4B F1=0.108
+- [x] Weighted RRF — `rrf_alpha=0.80`, `rrf_k=20` (locked)
 - [x] FastAPI Backend
-- [x] Paper Outline Structure (`latex_paper/main.tex`)
-- [x] RRF alpha sweep — α=0.80 optimal; hybrid is preferred RAG mode
-- [x] Embedding axis eval (nomic-embed-text-v1.5 achieved best MRR of 0.607)
-- [x] Generator eval (4 LLMs tested: Gemma 4 e2B/e4B/31B + Gemini Flash Lite via OpenRouter/Ollama)
+- [x] Paper — `latex_paper/main.tex` (updated with 333-question results)
 

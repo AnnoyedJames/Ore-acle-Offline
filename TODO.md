@@ -28,10 +28,11 @@
 - [x] Gold questionset — 305 pairs at `data/eval/questionset.json`
 - [x] `_strip_thinking()` in `run_eval.py` (handles Gemma 4 `<think>` tokens)
 - [x] **`relevant_images` fix** — `compute_image_recall` now extracts `local_filename` from dict entries
-- [x] **Search axis eval** (305-pair questionset, nomic, section_aware):
-  - Semantic: R@10=0.534
-  - Hybrid:   R@10=0.542 (Winner)
-  - Keyword:  R@10=0.470
+- [x] **Search axis eval** (333-pair questionset, nomic, section_aware):
+  - Semantic: MRR=0.625, R@10=0.514
+  - Hybrid:   MRR=0.614, R@10=0.512 (α=0.80)
+  - Keyword Custom: MRR=0.513, R@10=0.481
+  - Keyword OOTB: MRR=0.425, R@10=0.467
 - [x] **Weighted RRF** — `HybridSearch` now uses `rrf_alpha` (default 0.7) and `rrf_k=20`
   - `rrf_alpha` overridable per-instance; sweepable via `--axis rrf`
 
@@ -39,17 +40,24 @@
 
 ## Completed — Evaluation Axes
 
-- [x] **RRF alpha sweep** — optimal α found: **0.80** (k=20)
+- [x] **RRF alpha sweep** — optimal α found: **0.80** (k=20, MRR=0.615, R@10=0.516 on 333-question set)
 
 ### 1. Generator Eval 
 - [x] Run all 4 LLMs against the winning retrieval config:
 - [x] Review `data/eval/results/generator_*.md` after completion
+  - Gemma 4 e2B (Ollama): F1=0.244, BERTScore=0.711, CitF=0.634
+  - Gemma 4 e4B (Ollama): F1=0.108, BERTScore=0.310, CitF=0.295 (anomalous underperformance)
+  - Gemma 4 31B (OpenRouter): F1=0.290, BERTScore=0.844, CitF=0.973
+  - Gemini Flash Lite (OpenRouter): F1=0.288, BERTScore=0.844, CitF=0.983, Latency=3.1s
 
 ### 2. Embedding Axis Eval
 - [x] Ingest `nomic-ai/nomic-embed-text-v1.5` (768d, local) → `chunks_nomic_ai_nomic_embed_text_v1_5`
 - [x] Ingest `intfloat/multilingual-e5-large` (1024d, local)
 - [x] Ingest `google/gemini-embedding-001` (3072d, API)
 - [x] Run `python scripts/eval/run_eval.py --phase retriever --axis embedding`
+  - nomic-embed-text-v1.5: MRR=0.612, R@10=0.519, Img Rcl=0.265 (**winner**)
+  - BAAI/bge-m3: MRR=0.605, R@10=0.512, Img Rcl=0.225
+  - multilingual-e5-large: MRR=0.508, R@10=0.432, Img Rcl=0.141
 
 ### 3. Chunking Axis Eval
 - [x] Run LangChain chunker → `data/processed/chunks_langchain.json` (78,172 chunks, with images)
@@ -60,6 +68,8 @@
 - [x] Run `python scripts/eval/run_eval.py --phase retriever --axis chunking` (clean run)
   - Results:
     - section_aware defeated langchain definitively
+    - section_aware (333q): MRR=0.612, R@10=0.516, Img Rcl=0.265
+    - langchain result ≈0 in 333q eval due to collection mismatch (not a quality measurement)
 
 ---
 

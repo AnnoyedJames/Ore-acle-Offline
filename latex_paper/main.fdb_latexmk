@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1776874357.90739 "c:/Users/user/Documents/GitHub/Ore-acle-Offline/latex_paper/main.tex" "main.pdf" "main" 1776874362.05798 0
+["pdflatex"] 1777353621.03838 "c:/Users/user/Documents/GitHub/Ore-acle-Offline/latex_paper/main.tex" "main.pdf" "main" 1777353623.02927 0
   "C:/Program Files/MiKTeX/tex/generic/bigintcalc/bigintcalc.sty" 1576433602 40635 c40361e206be584d448876bba8a64a3b ""
   "C:/Program Files/MiKTeX/tex/generic/bitset/bitset.sty" 1575926576 33961 6b5c75130e435b2bfdb9f480a09a39f9 ""
   "C:/Program Files/MiKTeX/tex/generic/gettitlestring/gettitlestring.sty" 1576433666 8371 9d55b8bd010bc717624922fb3477d92e ""
@@ -66,6 +66,8 @@
   "C:/Users/user/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi8.pfb" 1247596666 35469 dcf3a5f2fc1862f5952e3ee5eb1d98c4 ""
   "C:/Users/user/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr10.pfb" 1247596667 35752 024fb6c41858982481f6968b5fc26508 ""
   "C:/Users/user/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb" 1247596667 32569 5e5ddc8df908dea60932f3c484a54c0d ""
+  "C:/Users/user/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy6.pfb" 1247596667 32587 65067f817f408bc71a7312f3d9828a9b ""
+  "C:/Users/user/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy8.pfb" 1247596667 32626 5abc8bb2f28aa647d4c70f8ea38cc0d3 ""
   "C:/Users/user/AppData/Local/Programs/MiKTeX/fonts/type1/urw/courier/ucrr8a.pfb" 1136846148 45758 19968a0990191524e34e1994d4a31cb6 ""
   "C:/Users/user/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmb8a.pfb" 1136828148 44729 fea0975e20ec51c992338362f05f1146 ""
   "C:/Users/user/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmr8a.pfb" 1136828148 46026 687528a208fbfc1f00832bb96cccebbb ""
@@ -223,12 +225,13 @@
   "C:/Users/user/AppData/Local/Programs/MiKTeX/tex/latex/url/url.sty" 1388490452 12796 8edb7d69a20b857904dd0ea757c14ec9 ""
   "C:/Users/user/AppData/Local/Programs/MiKTeX/tex/latex/xcolor/xcolor.sty" 1729265222 55384 b454dec21c2d9f45ec0b793f0995b992 ""
   "acl.sty" 1775663093 11913 80c16da31448a089d48639504144b10d ""
-  "c:/Users/user/Documents/GitHub/Ore-acle-Offline/latex_paper/main.tex" 1776874352 50014 2d36a3039f60b01a4a983ecec687d311 ""
+  "c:/Users/user/Documents/GitHub/Ore-acle-Offline/latex_paper/main.tex" 1777353620 50474 4d6bd5781f38614dbb94adf026e132b3 ""
+  "figures/UI_show_crafting.png" 1777344740 234094 742e9321db70c098bda58defd7979761 ""
   "figures/crafting_recipe_book.png" 1775939231 362044 89b3acedeae9cec47bbc7c480849cf69 ""
   "figures/minecraft_complexity.png" 1775939230 655384 914a3eb00ca0f93380edf2b4f9879012 ""
-  "main.aux" 1776874361 13849 f7d54ef6ca26d259b2e1cd84d8c14cb6 "pdflatex"
-  "main.out" 1776874361 6304 975c454c139ad69a0b97b2161d83970b "pdflatex"
-  "main.tex" 1776874352 50014 2d36a3039f60b01a4a983ecec687d311 ""
+  "main.aux" 1777353622 15058 57b3417f3450dee69c96a001cd940732 "pdflatex"
+  "main.out" 1777353622 6367 8094cea10cda726869795e4abd4a0020 "pdflatex"
+  "main.tex" 1777353620 50474 4d6bd5781f38614dbb94adf026e132b3 ""
   (generated)
   "main.aux"
   "main.log"

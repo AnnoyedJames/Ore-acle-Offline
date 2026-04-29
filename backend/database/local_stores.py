@@ -211,6 +211,23 @@ class SQLiteStore:
     BM25 ranking is handled natively by FTS5.
     """
 
+    @staticmethod
+    def _add_bm25_norm(rows: list[dict]) -> list[dict]:
+        """Append a ``bm25_norm`` field (0-1, higher = better) to each result row.
+
+        FTS5 BM25 scores are negative floats (more negative = better match).
+        Min-max normalises within the result set so the keyword signal is on
+        the same scale as cosine similarity before downstream RRF fusion.
+        """
+        if not rows:
+            return rows
+        scores = [-r["rank"] for r in rows]  # negate: FTS5 scores are negative
+        lo, hi = min(scores), max(scores)
+        span = hi - lo if hi != lo else 1.0
+        for row, score in zip(rows, scores):
+            row["bm25_norm"] = (score - lo) / span
+        return rows
+
     def __init__(self, db_path: Optional[Path] = None):
         self.db_path = str(db_path or settings.sqlite_db_path)
         self._conn: sqlite3.Connection | None = None
@@ -319,7 +336,7 @@ class SQLiteStore:
                 """,
                 (fts_query, limit),
             )
-            return [dict(row) for row in cursor.fetchall()]
+            return self._add_bm25_norm([dict(row) for row in cursor.fetchall()])
         
         # Custom mode: Advanced Information Retrieval heuristics
         # Standard English stopwords
@@ -341,13 +358,14 @@ class SQLiteStore:
         }
 
         # Filter out hardcoded stop words.
+        # FTS5's `porter unicode61` tokenizer automatically stems both index and query
+        # terms, so no explicit Python-side stemming is needed here.
         terms = [t for t in safe_query.split() if t.lower() not in _STOPWORDS]
         if not terms:
             return []
-            
-        # Append wildcard prefix matching so misspellings / variants match
-        fts_query = " OR ".join([f"{t}*" for t in terms])
-        
+
+        fts_query = " OR ".join(t.lower() for t in terms)
+
         cursor = self.conn.execute(
             """
             SELECT chunk_id, page_title, section_heading, rank
@@ -358,7 +376,7 @@ class SQLiteStore:
             """,
             (fts_query, limit),
         )
-        return [dict(row) for row in cursor.fetchall()]
+        return self._add_bm25_norm([dict(row) for row in cursor.fetchall()])
 
     def count(self) -> int:
         row = self.conn.execute(

@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { expandSemanticTags, parseMinecraftFormatting } from '@/lib/minecraft-colors';
 import { ChevronDown, BrainCircuit } from 'lucide-react';
+import CraftingGrid from './CraftingGrid';
 
 function ThinkingBlock({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
@@ -159,7 +160,40 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     const thinkText = thinkMatch ? thinkMatch[1] : null;
     const mainContent = thinkMatch ? content.slice(thinkMatch[0].length) : content;
 
-    const processedContent = isUser ? mainContent : parseMinecraftFormatting(expandSemanticTags(mainContent));
+    const processCraftingRecipes = (text: string) => {
+      if (!text) return text;
+      
+      // 1. Process inline array-based recipes
+      let processed = text.replace(
+        /\[(?:Crafting Recipe|Crafting):\s*\[(.*?)\]\s*\[(.*?)\]\s*\[(.*?)\]\s*->\s*(.*?)\]/gi,
+        (match, row1, row2, row3, result) => {
+          const extract = (row: string) => row.split(',').map(s => s.trim().replace(/"/g, '&quot;'));
+          const r1 = extract(row1);
+          const r2 = extract(row2);
+          const r3 = extract(row3);
+          const res = result?.trim().replace(/"/g, '&quot;') || '';
+          const s0 = r1[0] || ''; const s1 = r1[1] || ''; const s2 = r1[2] || '';
+          const s3 = r2[0] || ''; const s4 = r2[1] || ''; const s5 = r2[2] || '';
+          const s6 = r3[0] || ''; const s7 = r3[1] || ''; const s8 = r3[2] || '';
+          return `<crafting-grid data-s0="${s0}" data-s1="${s1}" data-s2="${s2}" data-s3="${s3}" data-s4="${s4}" data-s5="${s5}" data-s6="${s6}" data-s7="${s7}" data-s8="${s8}" data-result="${res}"></crafting-grid>`;
+        }
+      );
+
+      // 2. Process Markdown table-based recipes
+      // Allows for formatting like **Result:** Enchanting Table
+      const tablePattern = /\|\s*(?:Crafting Grid|Crafting recipe|Ingredients)\s*\|[^\|\n]*\|[^\|\n]*\|\s*\n\|\s*[-:]+\s*\|\s*[-:]+\s*\|\s*[-:]+\s*\|\s*\n\|\s*([^\|\n]+)\s*\|\s*([^\|\n]+)\s*\|\s*([^\|\n]+)\s*\|\s*\n\|\s*([^\|\n]+)\s*\|\s*([^\|\n]+)\s*\|\s*([^\|\n]+)\s*\|\s*\n\|\s*([^\|\n]+)\s*\|\s*([^\|\n]+)\s*\|\s*([^\|\n]+)\s*\|[\s\S]{0,150}?(?:Result|Output|Item|Crafting Result)(?:[^A-Za-z0-9_]|<[^>]*>)*([A-Za-z0-9_ '"-]+)/gi;
+      
+      processed = processed.replace(tablePattern, (match, s0, s1, s2, s3, s4, s5, s6, s7, s8, res) => {
+        const clean = (s: string) => s ? s.trim().replace(/"/g, '&quot;').replace(/\./g, '') : '';
+        const resultItem = clean(res) || 'Crafting Result';
+        return `\n\n<crafting-grid data-s0="${clean(s0)}" data-s1="${clean(s1)}" data-s2="${clean(s2)}" data-s3="${clean(s3)}" data-s4="${clean(s4)}" data-s5="${clean(s5)}" data-s6="${clean(s6)}" data-s7="${clean(s7)}" data-s8="${clean(s8)}" data-result="${resultItem}"></crafting-grid>\n\n`;
+      });
+      
+      return processed;
+    };
+
+    const formattedContent = isUser ? mainContent : parseMinecraftFormatting(expandSemanticTags(mainContent));
+    const processedContent = processCraftingRecipes(formattedContent);
 
     if (!message.citations || message.citations.length === 0) {
       return (
@@ -212,9 +246,16 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                 const headRow = Array.isArray(thead.props.children) ? thead.props.children[0] : thead.props.children;
                 if (headRow) {
                   const thCols = Array.isArray(headRow.props.children) ? headRow.props.children : [headRow.props.children];
-                  const firstColText = thCols[0]?.props?.children?.[0];
+                  const extractText = (node: any): string => {
+                    if (!node) return '';
+                    if (typeof node === 'string') return node;
+                    if (Array.isArray(node)) return node.map(extractText).join('');
+                    if (node.props && node.props.children) return extractText(node.props.children);
+                    return '';
+                  };
+                  const firstColText = extractText(thCols[0]);
                   
-                  if (typeof firstColText === 'string' && (firstColText.includes('Crafting Grid') || firstColText.includes('Crafting recipe') || firstColText.includes('Ingredients'))) {
+                  if (firstColText.includes('Crafting Grid') || firstColText.includes('Crafting recipe') || firstColText.includes('Ingredients')) {
                     const rows = (Array.isArray(tbody.props.children) ? tbody.props.children : [tbody.props.children])
                       .filter((c: any) => c && typeof c !== 'string' || (typeof c === 'string' && c.trim() !== ''));
                     
@@ -226,63 +267,45 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                           .filter((c: any) => c && typeof c !== 'string' || (typeof c === 'string' && c.trim() !== ''));
                         if (cols.length !== 3) { is3x3 = false; break; }
                         gridCols.push(cols.map((col: any) => {
-                          const val = col.props?.children?.[0];
-                          return typeof val === 'string' ? val.trim() : 'Empty';
+                          const val = extractText(col);
+                            return val ? val.trim() : 'Empty';
                         }));
                       }
                       
-                      if (is3x3) {
-                        return (
-                          <div className="my-4 p-4 bg-[#c6c6c6] border-[3px] border-b-[#555] border-r-[#555] border-t-white border-l-white inline-block max-w-full overflow-x-auto select-none rounded-[1px]">
-                            <div className="text-[#3f3f3f] font-bold mb-2 ml-1 font-mono tracking-tighter" style={{ textShadow: '1px 1px 0px rgba(255,255,255,0.4)' }}>Crafting</div>
-                            <div className="flex items-center justify-center gap-4 sm:gap-6">
-                              <div className="grid grid-cols-3 gap-0">
-                                {gridCols.map((row, rIdx) => 
-                                  row.map((col, cIdx) => {
-                                    const isEmpty = col === 'Empty' || col === ' ' || !col;
-                                    return (
-                                      <div key={`${rIdx}-${cIdx}`} className="w-10 h-10 sm:w-12 sm:h-12 bg-[#8b8b8b] border-2 border-b-white border-r-white border-t-[#373737] border-l-[#373737] flex items-center justify-center text-center p-0.5 relative group cursor-default">
-                                        {!isEmpty && (
-                                          <div className="text-[9px] sm:text-[10px] leading-[1.1] text-white break-words w-full max-h-full overflow-hidden" style={{ textShadow: '1px 1px 0px #3f3f3f' }}>
-                                            {col}
-                                          </div>
-                                        )}
-                                        {!isEmpty && (
-                                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 group-hover:opacity-100 bg-[#100010] border-2 border-[#3700b3] text-white text-xs px-2 py-1 rounded z-50 whitespace-nowrap shadow-md transition-opacity">
-                                            <span style={{ color: '#aaaaff', textShadow: '1px 1px 0px #000' }}>{col}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })
-                                )}
-                              </div>
-                              <div className="flex-shrink-0 w-8 h-6 sm:w-10 sm:h-8 relative opacity-80">
-                                <div className="absolute inset-0 bg-[#8b8b8b]" style={{ clipPath: 'polygon(0 30%, 60% 30%, 60% 0, 100% 50%, 60% 100%, 60% 70%, 0 70%)' }}></div>
-                                <div className="absolute inset-0 border border-[#3f3f3f]" style={{ clipPath: 'polygon(0 30%, 60% 30%, 60% 0, 100% 50%, 60% 100%, 60% 70%, 0 70%)' }}></div>
-                              </div>
-                              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-[#8b8b8b] border-2 border-b-white border-r-white border-t-[#373737] border-l-[#373737] flex items-center justify-center p-1 m-1">
-                                <div className="w-full text-center text-[#555] font-bold text-xs font-mono" style={{ textShadow: '1px 1px 0px rgba(255,255,255,0.4)' }}>?</div>
-                              </div>
-                            </div>
-                          </div>
-                        );
+                        if (is3x3) {
+                          return (
+                            <CraftingGrid 
+                              s0={gridCols[0][0]} s1={gridCols[0][1]} s2={gridCols[0][2]}
+                              s3={gridCols[1][0]} s4={gridCols[1][1]} s5={gridCols[1][2]}
+                              s6={gridCols[2][0]} s7={gridCols[2][1]} s8={gridCols[2][2]}
+                              result='Crafting Result'
+                            />
+                          );
+                        }
                       }
                     }
                   }
                 }
-              }
-              
-              return (
-                <div className="overflow-x-auto relative w-full mb-4">
-                  <table {...props}>
+                
+                return (
+                  <div className="overflow-x-auto relative w-full mb-4">
+                    <table {...props}>
                     {processChildren(children)}
                   </table>
                 </div>
               );
             },
-            img: (props) => <MarkdownImage message={message} {...props} />
-          }}
+            img: (props) => <MarkdownImage message={message} {...props} />,              'crafting-grid': ({ node, ...props }: any) => {
+                return (
+                  <CraftingGrid 
+                    s0={props['data-s0']} s1={props['data-s1']} s2={props['data-s2']} 
+                    s3={props['data-s3']} s4={props['data-s4']} s5={props['data-s5']} 
+                    s6={props['data-s6']} s7={props['data-s7']} s8={props['data-s8']} 
+                    result={props['data-result'] || 'Result'} 
+                  />
+                );
+              }
+          } as any}
         >
           {processedContent}
         </ReactMarkdown>

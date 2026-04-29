@@ -63,7 +63,7 @@
     "generated_at": "2026-04-07T16:48:12.371049+00:00",
     "gold_spans": [
       {
-        "text": "Each level of Depth Strider increases water movement efficiency by \u2153, including reducing the speed at which flowing water pushes the player when standing still.",
+        "text": "Each level of Depth Strider increases water movement efficiency by ⅓, including reducing the speed at which flowing water pushes the player when standing still.",
         "source_page": "Depth Strider",
         "hop": 1
       }
@@ -236,7 +236,7 @@
         "hop": 1
       },
       {
-        "text": "With the maximum bonus, the damage is small enough that the natural healing from a full hunger bar can outpace it,\u200c [ JE only ] so a player who has food and armor that resists damage (non-netherite armor is damaged by lava) could survive indefinitely.",
+        "text": "With the maximum bonus, the damage is small enough that the natural healing from a full hunger bar can outpace it,‌ [ JE only ] so a player who has food and armor that resists damage (non-netherite armor is damaged by lava) could survive indefinitely.",
         "source_page": "Lava",
         "hop": 1
       },
@@ -402,7 +402,7 @@
     "generated_at": "2026-04-07T16:48:51.966782+00:00",
     "gold_spans": [
       {
-        "text": "Wooden, golden, stone, copper, iron, and diamond pickaxes are crafted using two sticks and three of the tier\u2019s material.",
+        "text": "Wooden, golden, stone, copper, iron, and diamond pickaxes are crafted using two sticks and three of the tier’s material.",
         "source_page": "Pickaxe",
         "hop": 1
       }
@@ -527,7 +527,7 @@
     "generated_at": "2026-04-07T16:49:02.411896+00:00",
     "gold_spans": [
       {
-        "text": "Only players who have purchased Minecraft can change their character's skin. This is done on the profile page or in the Minecraft Launcher by uploading a valid PNG image that is 64\u00d764 pixels, or a legacy texture that is 64\u00d732 pixels, which then replaces the default skin.",
+        "text": "Only players who have purchased Minecraft can change their character's skin. This is done on the profile page or in the Minecraft Launcher by uploading a valid PNG image that is 64×64 pixels, or a legacy texture that is 64×32 pixels, which then replaces the default skin.",
         "source_page": "Skin",
         "hop": 1
       },
@@ -581,7 +581,7 @@
         "hop": 1
       },
       {
-        "text": "If the hunger bar is at 17 ( \u00d7 8.5) or lower, the player does not regenerate health unless in Peaceful difficulty (or under the effect of certain potions ). While the hunger bar is at 0 ( ) , the player is starving and proceeds to lose health.",
+        "text": "If the hunger bar is at 17 ( × 8.5) or lower, the player does not regenerate health unless in Peaceful difficulty (or under the effect of certain potions ). While the hunger bar is at 0 ( ) , the player is starving and proceeds to lose health.",
         "source_page": "Player",
         "hop": 1
       }
@@ -624,7 +624,7 @@
         "hop": 1
       },
       {
-        "text": "The result is that eventually, the 0.546 multiplier counteracts the 0.098 increase, so the player doesn't go any faster. The formula for this \"terminal velocity\" is a/(1-r), where a is the acceleration, and r is the block's friction. 0.098/(1-0.546) \u2248 0.2159 meters/tick = 4.317 meters/second. Sprinting is 30% faster than that, at about 5.612 meters/second.",
+        "text": "The result is that eventually, the 0.546 multiplier counteracts the 0.098 increase, so the player doesn't go any faster. The formula for this \"terminal velocity\" is a/(1-r), where a is the acceleration, and r is the block's friction. 0.098/(1-0.546) ≈ 0.2159 meters/tick = 4.317 meters/second. Sprinting is 30% faster than that, at about 5.612 meters/second.",
         "source_page": "Player",
         "hop": 1
       }
@@ -1078,7 +1078,7 @@
         "hop": 1
       },
       {
-        "text": "Java Edition : \n \n \n \n Item\n Quantity / Chance / Average\n\n Default\n Looting I\n Looting II\n Looting III\n\n \n Bone \n 0\u20132\n 66.67%\n 1.00\n 0\u20133\n 83.33%\n 1.50\n 0\u20134\n 91.67%\n 2.00\n 0\u20135\n 94.44%\n 2.50\n\n \n Arrow \n 0\u20132\n 66.67%\n 1.00\n 0\u20133\n 83.33%\n 1.50\n 0\u20134\n 91.67%\n 2.00\n 0\u20135\n 94.44%\n 2.50",
+        "text": "Java Edition : \n \n \n \n Item\n Quantity / Chance / Average\n\n Default\n Looting I\n Looting II\n Looting III\n\n \n Bone \n 0–2\n 66.67%\n 1.00\n 0–3\n 83.33%\n 1.50\n 0–4\n 91.67%\n 2.00\n 0–5\n 94.44%\n 2.50\n\n \n Arrow \n 0–2\n 66.67%\n 1.00\n 0–3\n 83.33%\n 1.50\n 0–4\n 91.67%\n 2.00\n 0–5\n 94.44%\n 2.50",
         "source_page": "Skeleton",
         "hop": 1
       }
@@ -1289,7 +1289,7 @@
     "generated_at": "2026-04-07T16:50:11.629680+00:00",
     "gold_spans": [
       {
-        "text": "Wooden, golden, stone, copper, iron, and diamond pickaxes are crafted using two sticks and three of the tier\u2019s material.",
+        "text": "Wooden, golden, stone, copper, iron, and diamond pickaxes are crafted using two sticks and three of the tier’s material.",
         "source_page": "Pickaxe",
         "hop": 1
       }
@@ -1327,7 +1327,7 @@
     "generated_at": "2026-04-07T16:50:11.629680+00:00",
     "gold_spans": [
       {
-        "text": "If the player's head is underwater and they are not wearing a helmet with the Aqua Affinity enchantment, breaking a block takes 5 times as long. If the player's feet are not touching the ground, an additional 5\u00d7 penalty is added; this causes players floating in water to break blocks 25\u00d7 slower than if they had been standing on land.",
+        "text": "If the player's head is underwater and they are not wearing a helmet with the Aqua Affinity enchantment, breaking a block takes 5 times as long. If the player's feet are not touching the ground, an additional 5× penalty is added; this causes players floating in water to break blocks 25× slower than if they had been standing on land.",
         "source_page": "Breaking",
         "hop": 1
       }
@@ -1371,7 +1371,7 @@
         "hop": 1
       },
       {
-        "text": "For example, a player with Haste II holding an Efficiency V diamond pickaxe (or netherite pickaxe ) can break stone instantly, as the damage is ( 8 + 26 )\u00d7 (1+0.4) =47.6, which is greater than the base hardness of stone (1.5) times 30 (which is 45).",
+        "text": "For example, a player with Haste II holding an Efficiency V diamond pickaxe (or netherite pickaxe ) can break stone instantly, as the damage is ( 8 + 26 )× (1+0.4) =47.6, which is greater than the base hardness of stone (1.5) times 30 (which is 45).",
         "source_page": "Breaking",
         "hop": 1
       }
@@ -1799,7 +1799,7 @@
     "generated_at": "2026-04-07T16:51:53.300308+00:00",
     "gold_spans": [
       {
-        "text": "Usable items\n\n Flint and Steel \n\n Fire Charge \u200c [ Java Edition only ]",
+        "text": "Usable items\n\n Flint and Steel \n\n Fire Charge ‌ [ Java Edition only ]",
         "source_page": "Creeper",
         "hop": 1
       }
@@ -1886,7 +1886,7 @@
   },
   {
     "question": "how do i get wool from a sheep",
-    "answer": "You can obtain 1\u20133 wool blocks by using shears on a sheep. This does not damage the sheep, and the wool will regrow after the sheep eats a grass block.",
+    "answer": "You can obtain 1–3 wool blocks by using shears on a sheep. This does not damage the sheep, and the wool will regrow after the sheep eats a grass block.",
     "difficulty": "easy",
     "relevant_links": [
       "https://minecraft.wiki/w/Wool",
@@ -1911,7 +1911,7 @@
     "generated_at": "2026-04-07T16:52:04.849785+00:00",
     "gold_spans": [
       {
-        "text": "Shears can be used on a sheep to remove its coat and drop 1\u20133 wool of the corresponding color. The same sheep can be sheared again after it eats from a grass block or short grass to regenerate its coat.",
+        "text": "Shears can be used on a sheep to remove its coat and drop 1–3 wool of the corresponding color. The same sheep can be sheared again after it eats from a grass block or short grass to regenerate its coat.",
         "source_page": "Shears",
         "hop": 1
       }
@@ -1961,7 +1961,7 @@
   },
   {
     "question": "does looting make sheep drop more mutton",
-    "answer": "Yes, the Looting enchantment increases the amount of raw or cooked mutton dropped by a sheep. While a sheep normally drops 1\u20132 mutton, a Looting III sword increases the drop to 1\u20135 mutton, with an average of 3.00 per kill.",
+    "answer": "Yes, the Looting enchantment increases the amount of raw or cooked mutton dropped by a sheep. While a sheep normally drops 1–2 mutton, a Looting III sword increases the drop to 1–5 mutton, with an average of 3.00 per kill.",
     "difficulty": "hard",
     "relevant_links": [
       "https://minecraft.wiki/w/Sheep"
@@ -1985,12 +1985,12 @@
     "generated_at": "2026-04-07T16:52:04.849785+00:00",
     "gold_spans": [
       {
-        "text": "Raw Mutton [ A ] \n 1\u20132\n 100.00%\n 1.50\n 1\u20133\n 100.00%\n 2.00\n 1\u20134\n 100.00%\n 2.50\n 1\u20135\n 100.00%\n 3.00",
+        "text": "Raw Mutton [ A ] \n 1–2\n 100.00%\n 1.50\n 1–3\n 100.00%\n 2.00\n 1–4\n 100.00%\n 2.50\n 1–5\n 100.00%\n 3.00",
         "source_page": "Sheep",
         "hop": 1
       },
       {
-        "text": "Cooked Mutton [ B ] \n 1\u20132\n 100.00%\n 1.50\n 1\u20133\n 100.00%\n 2.00\n 1\u20134\n 100.00%\n 2.50\n 1\u20135\n 100.00%\n 3.00",
+        "text": "Cooked Mutton [ B ] \n 1–2\n 100.00%\n 1.50\n 1–3\n 100.00%\n 2.00\n 1–4\n 100.00%\n 2.50\n 1–5\n 100.00%\n 3.00",
         "source_page": "Sheep",
         "hop": 1
       }
@@ -2110,7 +2110,7 @@
     "generated_at": "2026-04-07T16:52:26.671290+00:00",
     "gold_spans": [
       {
-        "text": "Attempting to sleep in a bed in the Nether , the End , and custom dimensions \u200c [ JE only ] in which they are disabled causes it to explode and set fire to surrounding blocks.",
+        "text": "Attempting to sleep in a bed in the Nether , the End , and custom dimensions ‌ [ JE only ] in which they are disabled causes it to explode and set fire to surrounding blocks.",
         "source_page": "Bed",
         "hop": 1
       },
@@ -2158,7 +2158,7 @@
     "generated_at": "2026-04-07T16:52:37.608531+00:00",
     "gold_spans": [
       {
-        "text": "Players in Survival and Adventure mode, as well as Creative in Bedrock Edition and Spectator in Java Edition , have access to a 2\u00d72 crafting grid from their inventory screen. Players craft by arranging items in the crafting grid to match a given recipe. Small crafting recipes that are at most 2\u00d72 can be made there, including wooden planks , sticks , crafting tables , and torches .",
+        "text": "Players in Survival and Adventure mode, as well as Creative in Bedrock Edition and Spectator in Java Edition , have access to a 2×2 crafting grid from their inventory screen. Players craft by arranging items in the crafting grid to match a given recipe. Small crafting recipes that are at most 2×2 can be made there, including wooden planks , sticks , crafting tables , and torches .",
         "source_page": "Crafting",
         "hop": 1
       }
@@ -2443,7 +2443,7 @@
         "hop": 1
       },
       {
-        "text": "Additionally, witches can spawn at any block within the 7\u00d77\u00d79 (x\u00d7y\u00d7z) area that constitutes the hut (this is the size of the roof and one block over the porch, from one level below the floor of the hut to two blocks above the roof).",
+        "text": "Additionally, witches can spawn at any block within the 7×7×9 (x×y×z) area that constitutes the hut (this is the size of the roof and one block over the porch, from one level below the floor of the hut to two blocks above the roof).",
         "source_page": "Swamp Hut",
         "hop": 1
       }
@@ -2644,7 +2644,7 @@
         "hop": 1
       },
       {
-        "text": "Leaves that decay, or are destroyed without using Silk Touch or shears , yield saplings 5% ( 1 \u2044 20 ) of the time, sticks 2% of the time, and otherwise nothing.",
+        "text": "Leaves that decay, or are destroyed without using Silk Touch or shears , yield saplings 5% ( 1 ⁄ 20 ) of the time, sticks 2% of the time, and otherwise nothing.",
         "source_page": "Leaves",
         "hop": 1
       }
@@ -2687,7 +2687,7 @@
     "generated_at": "2026-04-07T16:53:29.905738+00:00",
     "gold_spans": [
       {
-        "text": "Leaves from trees spontaneously decay (disappear) when they receive a block tick if they are not connected to any log or wood blocks, stripped or otherwise, either directly or via other leaf blocks, with a maximum distance of 6 blocks\u200c [ Java Edition only ] or 4 blocks\u200c [ Bedrock Edition only ] .",
+        "text": "Leaves from trees spontaneously decay (disappear) when they receive a block tick if they are not connected to any log or wood blocks, stripped or otherwise, either directly or via other leaf blocks, with a maximum distance of 6 blocks‌ [ Java Edition only ] or 4 blocks‌ [ Bedrock Edition only ] .",
         "source_page": "Leaves",
         "hop": 1
       },
@@ -2736,7 +2736,7 @@
         "hop": 1
       },
       {
-        "text": "All leaf types have a 2% chance to drop 1\u20132 sticks when they decay or when broken using a tool without Silk Touch . Using a tool with Fortune increases these chances to 2.2%, 2.5%, and 3.3% for Fortune I, II, and III respectively.",
+        "text": "All leaf types have a 2% chance to drop 1–2 sticks when they decay or when broken using a tool without Silk Touch . Using a tool with Fortune increases these chances to 2.2%, 2.5%, and 3.3% for Fortune I, II, and III respectively.",
         "source_page": "Stick",
         "hop": 1
       },
@@ -2878,7 +2878,7 @@
         "hop": 1
       },
       {
-        "text": "Blue Ice \n 0.989\n 0.011\n 3. 63 \u203e \n 72. 72 \u203e ",
+        "text": "Blue Ice \n 0.989\n 0.011\n 3. 63 ‾ \n 72. 72 ‾ ",
         "source_page": "Boat",
         "hop": 1
       },
@@ -3099,17 +3099,17 @@
     "generated_at": "2026-04-07T16:54:17.872876+00:00",
     "gold_spans": [
       {
-        "text": "Zombie [ A ] \n 0\u20131\n 0.83%\n 0.01\n 0\u20131\n 1.17%\n 0.01\n 0\u20131\n 1.50%\n 0.01\n 0\u20131\n 1.83%\n 0.02",
+        "text": "Zombie [ A ] \n 0–1\n 0.83%\n 0.01\n 0–1\n 1.17%\n 0.01\n 0–1\n 1.50%\n 0.01\n 0–1\n 1.83%\n 0.02",
         "source_page": "Iron Ingot",
         "hop": 1
       },
       {
-        "text": "Zombie Villager [ A ] \n 0\u20131\n 0.83%\n 0.01\n 0\u20131\n 1.17%\n 0.01\n 0\u20131\n 1.50%\n 0.01\n 0\u20131\n 1.83%\n 0.02",
+        "text": "Zombie Villager [ A ] \n 0–1\n 0.83%\n 0.01\n 0–1\n 1.17%\n 0.01\n 0–1\n 1.50%\n 0.01\n 0–1\n 1.83%\n 0.02",
         "source_page": "Iron Ingot",
         "hop": 1
       },
       {
-        "text": "Husk [ A ] \n 0\u20131\n 0.83%\n 0.01\n 0\u20131\n 1.17%\n 0.01\n 0\u20131\n 1.50%\n 0.01\n 0\u20131\n 1.83%\n 0.02",
+        "text": "Husk [ A ] \n 0–1\n 0.83%\n 0.01\n 0–1\n 1.17%\n 0.01\n 0–1\n 1.50%\n 0.01\n 0–1\n 1.83%\n 0.02",
         "source_page": "Iron Ingot",
         "hop": 1
       }
@@ -3310,7 +3310,7 @@
     "generated_at": "2026-04-07T16:54:49.720191+00:00",
     "gold_spans": [
       {
-        "text": "Small crafting recipes that are at most 2\u00d72 can be made there, including wooden planks , sticks , crafting tables , and torches .",
+        "text": "Small crafting recipes that are at most 2×2 can be made there, including wooden planks , sticks , crafting tables , and torches .",
         "source_page": "Crafting",
         "hop": 1
       },
@@ -3333,7 +3333,7 @@
   },
   {
     "question": "can i get sticks from breaking leaves with a silk touch axe",
-    "answer": "No, you cannot get sticks from leaves if you use a tool enchanted with Silk Touch. Normally, leaves have a 2% chance to drop 1\u20132 sticks when they decay or are broken, but Silk Touch prevents this drop.",
+    "answer": "No, you cannot get sticks from leaves if you use a tool enchanted with Silk Touch. Normally, leaves have a 2% chance to drop 1–2 sticks when they decay or are broken, but Silk Touch prevents this drop.",
     "difficulty": "medium",
     "relevant_links": [
       "https://minecraft.wiki/w/Silk_Touch",
@@ -3358,7 +3358,7 @@
     "generated_at": "2026-04-07T16:54:49.720191+00:00",
     "gold_spans": [
       {
-        "text": "All leaf types have a 2% chance to drop 1\u20132 sticks when they decay or when broken using a tool without Silk Touch .",
+        "text": "All leaf types have a 2% chance to drop 1–2 sticks when they decay or when broken using a tool without Silk Touch .",
         "source_page": "Stick",
         "hop": 1
       },
@@ -3401,7 +3401,7 @@
     "generated_at": "2026-04-07T16:54:49.720191+00:00",
     "gold_spans": [
       {
-        "text": "Java Edition : \n \n \n \n Mob\n Quantity / Chance / Average\n\n Default\n Looting I\n Looting II\n Looting III\n\n Witch \n 0\u20136\n 33.49%\n 0.57\n 0\u20139\n 40.51%\n 0.86\n 0\u201312\n 43.83%\n 1.14\n 0\u201315\n 44.91%\n 1.43",
+        "text": "Java Edition : \n \n \n \n Mob\n Quantity / Chance / Average\n\n Default\n Looting I\n Looting II\n Looting III\n\n Witch \n 0–6\n 33.49%\n 0.57\n 0–9\n 40.51%\n 0.86\n 0–12\n 43.83%\n 1.14\n 0–15\n 44.91%\n 1.43",
         "source_page": "Stick",
         "hop": 1
       }
@@ -3448,7 +3448,7 @@
         "hop": 1
       },
       {
-        "text": "Ender Pearl 0\u20131 50.00% 0.50",
+        "text": "Ender Pearl 0–1 50.00% 0.50",
         "source_page": "Enderman",
         "hop": 1
       }
@@ -3534,7 +3534,7 @@
         "hop": 1
       },
       {
-        "text": "They do not take damage from sunlight like undead mobs, but when at a sufficient light level under the sky during the day\u200c [ Java Edition only ] or at any light level\u200c [ Bedrock Edition only ] they teleport randomly, typically ending up in caves",
+        "text": "They do not take damage from sunlight like undead mobs, but when at a sufficient light level under the sky during the day‌ [ Java Edition only ] or at any light level‌ [ Bedrock Edition only ] they teleport randomly, typically ending up in caves",
         "source_page": "Enderman",
         "hop": 1
       }
@@ -3573,7 +3573,7 @@
     "generated_at": "2026-04-07T16:55:35.603299+00:00",
     "gold_spans": [
       {
-        "text": "To craft more complex items, a crafting table must be created, placed, and used . This brings up an interface with a larger 3\u00d73 crafting grid in which the player can use to craft any crafting recipe in the game.",
+        "text": "To craft more complex items, a crafting table must be created, placed, and used . This brings up an interface with a larger 3×3 crafting grid in which the player can use to craft any crafting recipe in the game.",
         "source_page": "Crafting",
         "hop": 1
       },
@@ -3859,7 +3859,7 @@
     "generated_at": "2026-04-07T16:56:13.950314+00:00",
     "gold_spans": [
       {
-        "text": "Most solid blocks are 1 meter high (3.28084... feet or 1250 \u2044 381 feet), but several blocks have non-standard block heights, such as slabs . A player can automatically step up from a lower to a higher height if the difference is at most 0.6 ( 3 \u2044 5 ) of a block or 1.9685... feet ( 250 \u2044 127 feet).",
+        "text": "Most solid blocks are 1 meter high (3.28084... feet or 1250 ⁄ 381 feet), but several blocks have non-standard block heights, such as slabs . A player can automatically step up from a lower to a higher height if the difference is at most 0.6 ( 3 ⁄ 5 ) of a block or 1.9685... feet ( 250 ⁄ 127 feet).",
         "source_page": "Block",
         "hop": 1
       }
@@ -3894,7 +3894,7 @@
     "generated_at": "2026-04-07T16:56:13.950314+00:00",
     "gold_spans": [
       {
-        "text": "Almost all blocks ignore gravity, except for sand , red sand , gravel , anvils of all damage levels, dragon eggs , all colors of concrete powder , scaffolding , snow layers\u200c [ BE only ] , pointed dripstone , suspicious sand , and suspicious gravel . These turn into entities when their support is removed.",
+        "text": "Almost all blocks ignore gravity, except for sand , red sand , gravel , anvils of all damage levels, dragon eggs , all colors of concrete powder , scaffolding , snow layers‌ [ BE only ] , pointed dripstone , suspicious sand , and suspicious gravel . These turn into entities when their support is removed.",
         "source_page": "Block",
         "hop": 1
       },
@@ -3977,12 +3977,12 @@
     "generated_at": "2026-04-07T16:56:32.269950+00:00",
     "gold_spans": [
       {
-        "text": "Upon taking damage, the wither breaks all blocks within a 3\u00d74\u00d73 area around it, including blast-resistant blocks like obsidian , crying obsidian , and ancient debris , dropping them as items if possible. The wither is the only mob in the game that can destroy obsidian.",
+        "text": "Upon taking damage, the wither breaks all blocks within a 3×4×3 area around it, including blast-resistant blocks like obsidian , crying obsidian , and ancient debris , dropping them as items if possible. The wither is the only mob in the game that can destroy obsidian.",
         "source_page": "Wither",
         "hop": 1
       },
       {
-        "text": "The wither cannot break the following blocks: \n\nAllow \u200c [ BE & edu only ] \n\nBarrier \n\nBedrock \n\nBorder \u200c [ BE & edu only ] \n\nCommand Blocks \n\nDeny \u200c [ BE & edu only ] \n\nEnd Gateway \u200c [ JE only ] \n\nEnd Portal \n\nEnd Portal Frame \n\nJigsaw Block \u200c [ JE only ] \n\nLight Blocks \n\nMoving Piston \n\nNether Portal \u200c [ JE only ] \n\nReinforced Deepslate \n\nStructure Block \n\nStructure Void \u200c [ BE & edu only ] \n\nTest Block \u200c [ JE only ] \n\nTest Instance Block \u200c [ JE only ]",
+        "text": "The wither cannot break the following blocks: \n\nAllow ‌ [ BE & edu only ] \n\nBarrier \n\nBedrock \n\nBorder ‌ [ BE & edu only ] \n\nCommand Blocks \n\nDeny ‌ [ BE & edu only ] \n\nEnd Gateway ‌ [ JE only ] \n\nEnd Portal \n\nEnd Portal Frame \n\nJigsaw Block ‌ [ JE only ] \n\nLight Blocks \n\nMoving Piston \n\nNether Portal ‌ [ JE only ] \n\nReinforced Deepslate \n\nStructure Block \n\nStructure Void ‌ [ BE & edu only ] \n\nTest Block ‌ [ JE only ] \n\nTest Instance Block ‌ [ JE only ]",
         "source_page": "Wither",
         "hop": 1
       }
@@ -4176,7 +4176,7 @@
         "hop": 1
       },
       {
-        "text": "Green Dye \n Cactus  + Any fuel \n 1 \n \u200c [ Java Edition only ] [ 1 ]",
+        "text": "Green Dye \n Cactus  + Any fuel \n 1 \n ‌ [ Java Edition only ] [ 1 ]",
         "source_page": "Green Dye",
         "hop": 1
       }
@@ -4376,7 +4376,7 @@
     "generated_at": "2026-04-07T16:57:21.128148+00:00",
     "gold_spans": [
       {
-        "text": "The conversion process can be sped up by placing iron bars or beds near the zombie villager. The game checks for these blocks in a 9\u00d79\u00d79 cube centered on the mob, and having up to 14 of these items within that space can decrease the countdown timer by an average of 4.2%.",
+        "text": "The conversion process can be sped up by placing iron bars or beds near the zombie villager. The game checks for these blocks in a 9×9×9 cube centered on the mob, and having up to 14 of these items within that space can decrease the countdown timer by an average of 4.2%.",
         "source_page": "Zombie Villager",
         "hop": 1
       }
@@ -4501,7 +4501,7 @@
         "hop": 1
       },
       {
-        "text": "In addition to the methods above, a dispenser can also be activated by quasi-connectivity .\u200c [ Java Edition only ] A dispenser becomes activated if one of the methods above would activate a mechanism component in the block above the dispenser, even if there is no mechanism component there (even if the block above the dispenser is air or a non-conductive block), but only when the dispenser receives a block update (including a redstone update within two blocks of the dispenser).",
+        "text": "In addition to the methods above, a dispenser can also be activated by quasi-connectivity .‌ [ Java Edition only ] A dispenser becomes activated if one of the methods above would activate a mechanism component in the block above the dispenser, even if there is no mechanism component there (even if the block above the dispenser is air or a non-conductive block), but only when the dispenser receives a block update (including a redstone update within two blocks of the dispenser).",
         "source_page": "Dispenser",
         "hop": 1
       }
@@ -4906,7 +4906,7 @@
     "generated_at": "2026-04-07T16:59:01.142450+00:00",
     "gold_spans": [
       {
-        "text": "Brewing is the process of creating potions , splash potions , lingering potions , and medicine \u200c [ Minecraft Education only ] by adding various ingredients to water bottles in a brewing stand .",
+        "text": "Brewing is the process of creating potions , splash potions , lingering potions , and medicine ‌ [ Minecraft Education only ] by adding various ingredients to water bottles in a brewing stand .",
         "source_page": "Brewing",
         "hop": 1
       },
@@ -5061,7 +5061,7 @@
     "generated_at": "2026-04-07T16:59:11.749493+00:00",
     "gold_spans": [
       {
-        "text": "This can happen at a distance of up to one block downward, one block sideways (including diagonals), and four blocks upward of the original fire block (not the block the fire is on/next to). Blocks in the way do not prevent fire from igniting blocks above it\u2014so even if the player protects a wooden roof with cobblestone between it and the fire, the fire ignores that cobblestone.",
+        "text": "This can happen at a distance of up to one block downward, one block sideways (including diagonals), and four blocks upward of the original fire block (not the block the fire is on/next to). Blocks in the way do not prevent fire from igniting blocks above it—so even if the player protects a wooden roof with cobblestone between it and the fire, the fire ignores that cobblestone.",
         "source_page": "Fire",
         "hop": 1
       }
@@ -5113,7 +5113,7 @@
   },
   {
     "question": "how do i breed chickens in minecraft",
-    "answer": "You can breed chickens by feeding them wheat seeds, beetroot seeds, melon seeds, pumpkin seeds, torchflower seeds, or pitcher pods. Once you feed two chickens, they will enter love mode and produce a chick, which also grants you 1\u20137 experience orbs.",
+    "answer": "You can breed chickens by feeding them wheat seeds, beetroot seeds, melon seeds, pumpkin seeds, torchflower seeds, or pitcher pods. Once you feed two chickens, they will enter love mode and produce a chick, which also grants you 1–7 experience orbs.",
     "difficulty": "easy",
     "relevant_links": [
       "https://minecraft.wiki/w/Chicken"
@@ -5142,7 +5142,7 @@
         "hop": 1
       },
       {
-        "text": "1\u20137 XP experience orbs upon a successful breeding .",
+        "text": "1–7 XP experience orbs upon a successful breeding .",
         "source_page": "Chicken",
         "hop": 1
       }
@@ -5216,7 +5216,7 @@
     "generated_at": "2026-04-07T16:59:35.088883+00:00",
     "gold_spans": [
       {
-        "text": "A 1 \u2044 8 chance from a thrown egg .",
+        "text": "A 1 ⁄ 8 chance from a thrown egg .",
         "source_page": "Chicken",
         "hop": 1
       }
@@ -5465,7 +5465,7 @@
     "generated_at": "2026-04-07T17:00:17.902135+00:00",
     "gold_spans": [
       {
-        "text": "The fuel continues burning until fully consumed, regardless of whether the upper slot has any items remaining to process. For example, a piece of coal burns for 80 seconds and can process eight items, but if only one item is processed (or if the item is pulled out before the process is complete), the coal still continues burning for the full 80 seconds, wasting seven items\u2019 worth of processing.",
+        "text": "The fuel continues burning until fully consumed, regardless of whether the upper slot has any items remaining to process. For example, a piece of coal burns for 80 seconds and can process eight items, but if only one item is processed (or if the item is pulled out before the process is complete), the coal still continues burning for the full 80 seconds, wasting seven items’ worth of processing.",
         "source_page": "Furnace",
         "hop": 1
       }
@@ -5879,7 +5879,7 @@
         "hop": 1
       },
       {
-        "text": "\u2191 Only when killed by a player or a tamed wolf.",
+        "text": "↑ Only when killed by a player or a tamed wolf.",
         "source_page": "Spider",
         "hop": 1
       }
@@ -5965,7 +5965,7 @@
     "generated_at": "2026-04-07T17:01:49.908225+00:00",
     "gold_spans": [
       {
-        "text": "Spiders occasionally spawn with status effects in Hard difficulty. For each pack spawn , there is a (10\u00d7 clamped regional difficulty )% chance of the game applying a status effect.",
+        "text": "Spiders occasionally spawn with status effects in Hard difficulty. For each pack spawn , there is a (10× clamped regional difficulty )% chance of the game applying a status effect.",
         "source_page": "Spider",
         "hop": 1
       },
@@ -6296,7 +6296,7 @@
     "generated_at": "2026-04-07T17:03:06.533391+00:00",
     "gold_spans": [
       {
-        "text": "Once placed, minecarts can be retrieved by attacking them for some time. One attack from a pickaxe , sword or axe is enough for a minecart to drop in item form, provided the player's attack cooldown is reset\u200c [ Java Edition only ] .",
+        "text": "Once placed, minecarts can be retrieved by attacking them for some time. One attack from a pickaxe , sword or axe is enough for a minecart to drop in item form, provided the player's attack cooldown is reset‌ [ Java Edition only ] .",
         "source_page": "Minecart",
         "hop": 1
       }
@@ -6381,7 +6381,7 @@
         "hop": 1
       },
       {
-        "text": "Slimes spawn in the Overworld in slime chunks below the layer of Y=40 in groups of four\u200c [ JE only ] or individually\u200c [ BE only ] , regardless of the lighting or weather conditions.",
+        "text": "Slimes spawn in the Overworld in slime chunks below the layer of Y=40 in groups of four‌ [ JE only ] or individually‌ [ BE only ] , regardless of the lighting or weather conditions.",
         "source_page": "Slime",
         "hop": 1
       },
@@ -6910,7 +6910,7 @@
     "generated_at": "2026-04-07T17:04:39.348524+00:00",
     "gold_spans": [
       {
-        "text": "When destroyed using a tool without Silk Touch , gravel has a 10% chance to drop flint if this tool isn't enchanted with Fortune ; It has a 14.2857\u2026\u2026% ( 1 \u2044 7 ) to drop flint if the tool is enchanted with Fortune I, 25% for Fortune II, and 100% for Fortune III.",
+        "text": "When destroyed using a tool without Silk Touch , gravel has a 10% chance to drop flint if this tool isn't enchanted with Fortune ; It has a 14.2857……% ( 1 ⁄ 7 ) to drop flint if the tool is enchanted with Fortune I, 25% for Fortune II, and 100% for Fortune III.",
         "source_page": "Gravel",
         "hop": 1
       }
@@ -7221,7 +7221,7 @@
   },
   {
     "question": "how do i make wool in minecraft",
-    "answer": "You can obtain wool by using shears on an adult sheep, which yields 1\u20133 blocks. Alternatively, you can craft it using 4 pieces of string in a square pattern in your crafting grid.",
+    "answer": "You can obtain wool by using shears on an adult sheep, which yields 1–3 blocks. Alternatively, you can craft it using 4 pieces of string in a square pattern in your crafting grid.",
     "difficulty": "easy",
     "relevant_links": [
       "https://minecraft.wiki/w/Wool",
@@ -7247,7 +7247,7 @@
     "generated_at": "2026-04-07T17:05:29.875381+00:00",
     "gold_spans": [
       {
-        "text": "Using shears on an adult sheep yields 1\u20133 wool.",
+        "text": "Using shears on an adult sheep yields 1–3 wool.",
         "source_page": "Wool",
         "hop": 1
       },
@@ -7291,7 +7291,7 @@
     "generated_at": "2026-04-07T17:05:29.875381+00:00",
     "gold_spans": [
       {
-        "text": "Using shears on an adult sheep yields 1\u20133 wool. ... The drop rates are not affected by the Fortune or Looting enchantments .",
+        "text": "Using shears on an adult sheep yields 1–3 wool. ... The drop rates are not affected by the Fortune or Looting enchantments .",
         "source_page": "Wool",
         "hop": 1
       },
@@ -7590,7 +7590,7 @@
         "hop": 1
       },
       {
-        "text": "The cauldron can be placed at most 10 blocks below the dripstone, and will not be filled if any solid block , water or lava\u200c [ JE only ] / any block\u200c [ BE only ] is within this range.",
+        "text": "The cauldron can be placed at most 10 blocks below the dripstone, and will not be filled if any solid block , water or lava‌ [ JE only ] / any block‌ [ BE only ] is within this range.",
         "source_page": "Cauldron",
         "hop": 1
       }
@@ -7864,7 +7864,7 @@
     "generated_at": "2026-04-07T17:06:41.531224+00:00",
     "gold_spans": [
       {
-        "text": "To craft more complex items, a crafting table must be created, placed, and used . This brings up an interface with a larger 3\u00d73 crafting grid in which the player can use to craft any crafting recipe in the game.",
+        "text": "To craft more complex items, a crafting table must be created, placed, and used . This brings up an interface with a larger 3×3 crafting grid in which the player can use to craft any crafting recipe in the game.",
         "source_page": "Crafting",
         "hop": 1
       },
@@ -7950,7 +7950,7 @@
         "hop": 1
       },
       {
-        "text": "The maximum number of diamonds dropped from a diamond ore block can be increased with Fortune . Fortune I gives a 1 \u2044 3 chance for 2 diamonds, averaging 1.33 diamonds, Fortune II gives a 25% chance (each) to give 2 or 3 diamonds, averaging 1.75 diamonds, and Fortune III gives a 20% chance (each) to give 2, 3, or 4 diamonds, averaging 2.2 diamonds.",
+        "text": "The maximum number of diamonds dropped from a diamond ore block can be increased with Fortune . Fortune I gives a 1 ⁄ 3 chance for 2 diamonds, averaging 1.33 diamonds, Fortune II gives a 25% chance (each) to give 2 or 3 diamonds, averaging 1.75 diamonds, and Fortune III gives a 20% chance (each) to give 2, 3, or 4 diamonds, averaging 2.2 diamonds.",
         "source_page": "Diamond Ore",
         "hop": 2
       }
@@ -8440,7 +8440,7 @@
     "generated_at": "2026-04-07T17:07:46.997197+00:00",
     "gold_spans": [
       {
-        "text": "The dirt block receiving grass must be within a 3\u00d75\u00d73 range of the source grass block where the source block is in the center of the second topmost layer of that range.",
+        "text": "The dirt block receiving grass must be within a 3×5×3 range of the source grass block where the source block is in the center of the second topmost layer of that range.",
         "source_page": "Grass Block",
         "hop": 1
       },
@@ -8499,7 +8499,7 @@
         "hop": 1
       },
       {
-        "text": "To craft more complex items, a crafting table must be created, placed, and used . This brings up an interface with a larger 3\u00d73 crafting grid in which the player can use to craft any crafting recipe in the game.",
+        "text": "To craft more complex items, a crafting table must be created, placed, and used . This brings up an interface with a larger 3×3 crafting grid in which the player can use to craft any crafting recipe in the game.",
         "source_page": "Crafting",
         "hop": 2
       }
@@ -8619,12 +8619,12 @@
     "generated_at": "2026-04-07T17:08:15.731267+00:00",
     "gold_spans": [
       {
-        "text": "Raw salmon can be used to tame cats with 1 \u2044 3 chance of success",
+        "text": "Raw salmon can be used to tame cats with 1 ⁄ 3 chance of success",
         "source_page": "Raw Salmon",
         "hop": 1
       },
       {
-        "text": "Raw cod can be used to tame cats with 1 \u2044 3 chance of success",
+        "text": "Raw cod can be used to tame cats with 1 ⁄ 3 chance of success",
         "source_page": "Raw Cod",
         "hop": 2
       }
@@ -8915,7 +8915,7 @@
     "generated_at": "2026-04-07T17:08:55.711549+00:00",
     "gold_spans": [
       {
-        "text": "Jungle pyramids , which are exclusive to jungle biomes, may generate in bamboo jungles\u200c [ Java Edition only ] and regular jungles.",
+        "text": "Jungle pyramids , which are exclusive to jungle biomes, may generate in bamboo jungles‌ [ Java Edition only ] and regular jungles.",
         "source_page": "Jungle",
         "hop": 1
       },
@@ -9041,7 +9041,7 @@
         "hop": 1
       },
       {
-        "text": "Hunger inflicted by eating rotten flesh , raw chicken or by being attacked by a husk adds 3.0 to the player's exhaustion level over the course of 30 seconds, draining 3 \u2044 4 of a saturation point.",
+        "text": "Hunger inflicted by eating rotten flesh , raw chicken or by being attacked by a husk adds 3.0 to the player's exhaustion level over the course of 30 seconds, draining 3 ⁄ 4 of a saturation point.",
         "source_page": "Hunger (effect)",
         "hop": 1
       }
@@ -9360,7 +9360,7 @@
     "generated_at": "2026-04-07T17:10:16.925383+00:00",
     "gold_spans": [
       {
-        "text": "Players in Survival and Adventure mode, as well as Creative in Bedrock Edition and Spectator in Java Edition , have access to a 2\u00d72 crafting grid from their inventory screen. Players craft by arranging items in the crafting grid to match a given recipe. Small crafting recipes that are at most 2\u00d72 can be made there, including wooden planks , sticks , crafting tables , and torches .",
+        "text": "Players in Survival and Adventure mode, as well as Creative in Bedrock Edition and Spectator in Java Edition , have access to a 2×2 crafting grid from their inventory screen. Players craft by arranging items in the crafting grid to match a given recipe. Small crafting recipes that are at most 2×2 can be made there, including wooden planks , sticks , crafting tables , and torches .",
         "source_page": "Crafting",
         "hop": 1
       }
@@ -9701,7 +9701,7 @@
         "hop": 1
       },
       {
-        "text": "Bartering is the only renewable source of nether quartz, crying obsidian, soul sand, dried ghasts (both directly as a barterable item and indirectly as a product of soul sand), nether brick\u200c [ Java Edition only ] , gravel, blackstone, and the Soul Speed enchantment.",
+        "text": "Bartering is the only renewable source of nether quartz, crying obsidian, soul sand, dried ghasts (both directly as a barterable item and indirectly as a product of soul sand), nether brick‌ [ Java Edition only ] , gravel, blackstone, and the Soul Speed enchantment.",
         "source_page": "Bartering",
         "hop": 2
       }
@@ -10112,7 +10112,7 @@
         "hop": 1
       },
       {
-        "text": "On death\n[ edit | edit source ] \nJava Edition :\nItem\nQuantity / Chance / Average\nGhast Tear\n0\u20131\n50.00%\n0.50\nGunpowder\n0\u20132\n66.67%\n1.00\nMusic Disc Tears [ A ]\n1\n100.00%\n1.00",
+        "text": "On death\n[ edit | edit source ] \nJava Edition :\nItem\nQuantity / Chance / Average\nGhast Tear\n0–1\n50.00%\n0.50\nGunpowder\n0–2\n66.67%\n1.00\nMusic Disc Tears [ A ]\n1\n100.00%\n1.00",
         "source_page": "Ghast",
         "hop": 1
       },
@@ -10582,7 +10582,7 @@
     "generated_at": "2026-04-07T17:12:10.283736+00:00",
     "gold_spans": [
       {
-        "text": "Donkeys can safely fall 6 blocks before they begin to accumulate fall damage , unlike most mobs, which can only safely fall 3 blocks. Donkeys also take half of the normal fall damage (rounded up) that most other mobs take (0.5 HP \u00d7 0.25 damage per block over the safe distance instead of 1 HP ).",
+        "text": "Donkeys can safely fall 6 blocks before they begin to accumulate fall damage , unlike most mobs, which can only safely fall 3 blocks. Donkeys also take half of the normal fall damage (rounded up) that most other mobs take (0.5 HP × 0.25 damage per block over the safe distance instead of 1 HP ).",
         "source_page": "Donkey",
         "hop": 1
       },
@@ -10803,7 +10803,7 @@
         "hop": 1
       },
       {
-        "text": "There is a chance for a new shulker of the same color to spawn when a shulker is hit with a shulker bullet (including one of its own \u200c [ Java Edition only ] ).",
+        "text": "There is a chance for a new shulker of the same color to spawn when a shulker is hit with a shulker bullet (including one of its own ‌ [ Java Edition only ] ).",
         "source_page": "Shulker",
         "hop": 1
       },
@@ -10937,7 +10937,7 @@
         "hop": 1
       },
       {
-        "text": "One block of coal lasts 800 seconds (16000 ticks), which smelts 80 items. This is ten times the duration of a single piece of coal and 1 1 \u2044 9 times as efficient (+11.11%) as nine individual pieces of coal, which would only smelt 72 items.",
+        "text": "One block of coal lasts 800 seconds (16000 ticks), which smelts 80 items. This is ten times the duration of a single piece of coal and 1 1 ⁄ 9 times as efficient (+11.11%) as nine individual pieces of coal, which would only smelt 72 items.",
         "source_page": "Block of Coal",
         "hop": 1
       }
@@ -10976,7 +10976,7 @@
     "generated_at": "2026-04-07T17:12:40.188526+00:00",
     "gold_spans": [
       {
-        "text": "It is affected by the Fortune enchantment, dropping 1\u20132, 1\u20133, or 1\u20134 coal respectively with Fortune I, II, and III.",
+        "text": "It is affected by the Fortune enchantment, dropping 1–2, 1–3, or 1–4 coal respectively with Fortune I, II, and III.",
         "source_page": "Coal Ore",
         "hop": 1
       }
@@ -11066,7 +11066,7 @@
         "hop": 1
       },
       {
-        "text": "From completing a challenge advancement .\u200c [ JE only ]",
+        "text": "From completing a challenge advancement .‌ [ JE only ]",
         "source_page": "Experience",
         "hop": 2
       }
@@ -11160,7 +11160,7 @@
   },
   {
     "question": "does looting help get more leather from cows",
-    "answer": "Yes, using a sword with Looting increases the amount of leather dropped. While a cow normally drops 0\u20132 leather, a Looting III sword increases the drop range to 0\u20135.",
+    "answer": "Yes, using a sword with Looting increases the amount of leather dropped. While a cow normally drops 0–2 leather, a Looting III sword increases the drop range to 0–5.",
     "difficulty": "medium",
     "relevant_links": [
       "https://minecraft.wiki/w/Cow"
@@ -11184,7 +11184,7 @@
     "generated_at": "2026-04-07T17:13:01.734795+00:00",
     "gold_spans": [
       {
-        "text": "An adult cow drops: Java Edition : Item Quantity / Chance / Average Default Looting I Looting II Looting III Leather 0\u20132 66.67% 1.00 0\u20133 83.33% 1.50 0\u20134 91.67% 2.00 0\u20135 94.44% 2.50",
+        "text": "An adult cow drops: Java Edition : Item Quantity / Chance / Average Default Looting I Looting II Looting III Leather 0–2 66.67% 1.00 0–3 83.33% 1.50 0–4 91.67% 2.00 0–5 94.44% 2.50",
         "source_page": "Cow",
         "hop": 1
       }
@@ -11218,12 +11218,12 @@
     "generated_at": "2026-04-07T17:13:01.734795+00:00",
     "gold_spans": [
       {
-        "text": "Cow \n 0\u20132\n 66.67%\n 1.00",
+        "text": "Cow \n 0–2\n 66.67%\n 1.00",
         "source_page": "Leather",
         "hop": 1
       },
       {
-        "text": "Hoglin \n 0\u20131\n 50.00%\n 0.50",
+        "text": "Hoglin \n 0–1\n 50.00%\n 0.50",
         "source_page": "Leather",
         "hop": 1
       },
@@ -11485,7 +11485,7 @@
         "hop": 1
       },
       {
-        "text": "For their first 10 seconds after zombification, they get the Nausea effect\u200c [ JE only ] [ 1 ] . This nausea effect is cosmetic and does not affect its behavior.",
+        "text": "For their first 10 seconds after zombification, they get the Nausea effect‌ [ JE only ] [ 1 ] . This nausea effect is cosmetic and does not affect its behavior.",
         "source_page": "Zoglin",
         "hop": 2
       }
@@ -11559,7 +11559,7 @@
     "generated_at": "2026-04-07T17:13:32.212524+00:00",
     "gold_spans": [
       {
-        "text": "A cobweb drops string when it is broken in these ways (see also Cobweb \u00a7 Usage ):\n\nBreaking a cobweb with a sword \n\nPushing a cobweb with a piston \n\nWater breaking a cobweb by flowing over it (flowing lava destroys cobwebs without leaving string)",
+        "text": "A cobweb drops string when it is broken in these ways (see also Cobweb § Usage ):\n\nBreaking a cobweb with a sword \n\nPushing a cobweb with a piston \n\nWater breaking a cobweb by flowing over it (flowing lava destroys cobwebs without leaving string)",
         "source_page": "String",
         "hop": 1
       }
@@ -11686,7 +11686,7 @@
         "hop": 1
       },
       {
-        "text": "To create the portal, the player must first build a rectangular obsidian frame, ranging in size from a minimum of 4 blocks \u00d7 5 blocks to a maximum of 23 blocks \u00d7 23 blocks. Any of the blocks in the corners can be destroyed without destroying the portal.",
+        "text": "To create the portal, the player must first build a rectangular obsidian frame, ranging in size from a minimum of 4 blocks × 5 blocks to a maximum of 23 blocks × 23 blocks. Any of the blocks in the corners can be destroyed without destroying the portal.",
         "source_page": "The Nether",
         "hop": 2
       }
@@ -11725,7 +11725,7 @@
     "generated_at": "2026-04-07T17:13:50.560353+00:00",
     "gold_spans": [
       {
-        "text": "Obsidian is, however, not immune to the wither . Although black wither skulls have merely the explosive power of a ghast fireball, blue wither skulls ignore blast resistance, which means they can destroy obsidian. The wither's body can also destroy obsidian, either through block-breaking behavior upon taking damage, or its dash attack\u200c [ Bedrock Edition only ] .",
+        "text": "Obsidian is, however, not immune to the wither . Although black wither skulls have merely the explosive power of a ghast fireball, blue wither skulls ignore blast resistance, which means they can destroy obsidian. The wither's body can also destroy obsidian, either through block-breaking behavior upon taking damage, or its dash attack‌ [ Bedrock Edition only ] .",
         "source_page": "Obsidian",
         "hop": 1
       }
@@ -11885,7 +11885,7 @@
     "generated_at": "2026-04-07T17:14:26.565740+00:00",
     "gold_spans": [
       {
-        "text": "Growing these trees requires four dark oak saplings arranged in a 2\u00d72 grid; they do not grow if planted individually.",
+        "text": "Growing these trees requires four dark oak saplings arranged in a 2×2 grid; they do not grow if planted individually.",
         "source_page": "Dark Oak",
         "hop": 1
       }
@@ -12373,7 +12373,7 @@
     "generated_at": "2026-04-07T17:15:09.064610+00:00",
     "gold_spans": [
       {
-        "text": "Blocks of gold are now more expensive, requiring 9 gold ingots (3\u00d73) instead of 4 (2\u00d72).",
+        "text": "Blocks of gold are now more expensive, requiring 9 gold ingots (3×3) instead of 4 (2×2).",
         "source_page": "Block of Gold",
         "hop": 1
       }
@@ -12697,12 +12697,12 @@
     "generated_at": "2026-04-08T08:58:49.724795+00:00",
     "gold_spans": [
       {
-        "text": "Java Edition : \n \n \n \n Item\n Quantity / Chance / Average\n\n Default\n Looting I\n Looting II\n Looting III\n\n \n Blaze Rod [ A ] \n 0\u20131\n 50.00%\n 0.50\n 0\u20132\n 75.00%\n 1.00\n 0\u20133\n 87.50%\n 1.50\n 0\u20134\n 91.67%\n 2.00",
+        "text": "Java Edition : \n \n \n \n Item\n Quantity / Chance / Average\n\n Default\n Looting I\n Looting II\n Looting III\n\n \n Blaze Rod [ A ] \n 0–1\n 50.00%\n 0.50\n 0–2\n 75.00%\n 1.00\n 0–3\n 87.50%\n 1.50\n 0–4\n 91.67%\n 2.00",
         "source_page": "Blaze",
         "hop": 1
       },
       {
-        "text": "Bedrock Edition : \n \n \n \n Item\n Quantity / Chance / Average\n\n Default\n Looting I\n Looting II\n Looting III\n\n \n Blaze Rod [ A ] \n 0\u20131\n 50.00%\n 0.50\n 0\u20132\n 50.00%\n 0.75\n 0\u20133\n 50.00%\n 1.00\n 0\u20134\n 50.00%\n 1.25",
+        "text": "Bedrock Edition : \n \n \n \n Item\n Quantity / Chance / Average\n\n Default\n Looting I\n Looting II\n Looting III\n\n \n Blaze Rod [ A ] \n 0–1\n 50.00%\n 0.50\n 0–2\n 50.00%\n 0.75\n 0–3\n 50.00%\n 1.00\n 0–4\n 50.00%\n 1.25",
         "source_page": "Blaze",
         "hop": 1
       }
@@ -12712,5 +12712,1209 @@
       "blaze rod drop rate",
       "what is the probability of a blaze dropping a rod?"
     ]
+  },
+  {
+    "question": "how fast are boats in minecraft?",
+    "answer": "Boats travel at different speeds depending on the surface they are traversing, with top speeds ranging from 2.0 blocks/s on land to 1818.18 blocks/s on blue ice. On water, boats reach a top speed of 10 blocks/s, while on ice, packed ice, or frosted ice, they reach 1000 blocks/s. These speeds are achieved when the player's acceleration balances with the surface's friction.",
+    "difficulty": "medium",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Ice",
+      "https://minecraft.wiki/w/Blue_Ice",
+      "https://minecraft.wiki/w/Water"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Oak_Boat_JE4_BE2.png",
+        "local_filename": "Oak_Boat_JE4_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Bamboo_Raft_JE1_BE1.png",
+        "local_filename": "Bamboo_Raft_JE1_BE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Multiple_mobs_in_2_boats.png",
+        "local_filename": "Multiple_mobs_in_2_boats.webp"
+      }
+    ],
+    "paraphrases": [
+      "minecraft boat speed blocks per second",
+      "minecraft boat movement velocity mechanics"
+    ],
+    "gold_spans": [
+      {
+        "text": "Boats move according to the player's control or water currents, with speed affected by the surface traversed. ... The above gives us a way to calculate the maximum speed of a boat on a surface because maximum speed is reached when the player's acceleration a p cancels out with the friction a f , v max = a p μ .",
+        "source_page": "Boat",
+        "hop": 1
+      },
+      {
+        "text": "| Block | c | μ (tick −1 ) | Top Speed | Max Yaw Rate | Notes | (block/tick) | (block/s) | (block/tick) | (block/s) | | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | | Water | 0.9 | 0.1 | 0.4 | 8.0 | 10 | 200 | | | | | Ice , Frosted Ice , Packed Ice | 0.98 | 0.02 | 2 | 40 | 50 | 1000 | Boats move extremely quickly on ice, allowing for the construction of fast transportation systems in any dimension. | | | | Blue Ice | 0.989 | 0.011 | 3. 63 ˉ | 72. 72 ˉ | 90. 90 ˉ | 1818. 18 ˉ | | | | | Land | 0.6 | 0.4 | 0.1 | 2.0 | 2.5 | 50 |",
+        "source_page": "Boat",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Boat",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:44:43.557344+00:00"
+  },
+  {
+    "question": "what is the fastest way to travel in minecraft?",
+    "answer": "The fastest way to travel in Minecraft is using a trident with the Riptide III enchantment, which can reach speeds of 632.0 m/s with perfect timing. Additionally, combining the Dolphin's Grace status effect with Depth Strider III, Soul Speed III on soul soil, and the Speed II status effect while underwater can reach speeds of 146.965 m/s.",
+    "difficulty": "medium",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Trident",
+      "https://minecraft.wiki/w/Riptide",
+      "https://minecraft.wiki/w/Dolphin's_Grace"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Trident.png",
+        "local_filename": "Trident.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Riptide_Trident.png",
+        "local_filename": "Riptide_Trident.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Swiftness_Effect.png",
+        "local_filename": "Swiftness_Effect.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Dolphin%27s_Grace_JE1.png?c89ca",
+        "local_filename": "Dolphin's_Grace_JE1.webp"
+      }
+    ],
+    "paraphrases": [
+      "fastest minecraft travel methods",
+      "minecraft optimal movement speed techniques"
+    ],
+    "gold_spans": [
+      {
+        "text": "The fastest way to travel in Minecraft is using a trident with the Riptide III enchantment, which can reach speeds of 632.0 m/s with perfect timing. Additionally, combining the Dolphin's Grace status effect with Depth Strider III, Soul Speed III on soul soil, and the Speed II status effect while underwater can reach speeds of 146.965 m/s.",
+        "source_page": "Transportation",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Transportation",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:45:05.092373+00:00"
+  },
+  {
+    "question": "do boats move faster on ice or blue ice?",
+    "answer": "Boats move faster on blue ice than on regular ice. While boats reach a top speed of 50 blocks/s on ice, they reach a top speed of approximately 72.72 blocks/s on blue ice.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Ice",
+      "https://minecraft.wiki/w/Blue_Ice"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Oak_Boat_JE4_BE2.png",
+        "local_filename": "Oak_Boat_JE4_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Multiple_mobs_in_2_boats.png",
+        "local_filename": "Multiple_mobs_in_2_boats.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Oak_Boat_JE2_BE1.png",
+        "local_filename": "Oak_Boat_JE2_BE1.webp"
+      }
+    ],
+    "paraphrases": [
+      "boat speed ice vs blue ice",
+      "minecraft boat ice friction comparison"
+    ],
+    "gold_spans": [
+      {
+        "text": "Like other entities, boats travel extremely quickly on ice and can reach a speed of 40 m/s, much faster than the 8 m/s speed on water .",
+        "source_page": "Ice",
+        "hop": 1
+      },
+      {
+        "text": "Boats can travel even faster on blue ice than on either normal ice or packed ice, being able to reach a top speed of 72.73 m/s (as opposed to 40 m/s on ice and packed ice).",
+        "source_page": "Blue Ice",
+        "hop": 2
+      }
+    ],
+    "multi_hop": true,
+    "source_page": "Boat",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:45:19.373633+00:00"
+  },
+  {
+    "question": "how do you make a nether portal?",
+    "answer": "A Nether portal is built as a vertical, rectangular frame of obsidian ranging from a minimum of 4×5 to a maximum of 23×23 blocks. Once the frame is constructed, it is activated by placing fire inside the frame using tools like flint and steel, a fire charge, or other fire sources. The fire must be the last block placed to successfully activate the portal.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Obsidian",
+      "https://minecraft.wiki/w/Fire",
+      "https://minecraft.wiki/w/Fireball"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Nether_portal_%28animated%29.png?26915",
+        "local_filename": "Nether_portal_(animated).webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Minecraft_Portal_23x23_Graduated.png",
+        "local_filename": "Minecraft_Portal_23x23_Graduated.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/4x5-5x7_Nether_Portal.png",
+        "local_filename": "4x5-5x7_Nether_Portal.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/7x7_Nether_Portal.png",
+        "local_filename": "7x7_Nether_Portal.webp"
+      }
+    ],
+    "paraphrases": [
+      "nether portal crafting recipe",
+      "obsidian portal build guide"
+    ],
+    "gold_spans": [
+      {
+        "text": "The Nether portal is built as a vertical, rectangular frame of obsidian (4×5 minimum, 23×23 maximum).",
+        "source_page": "Nether Portal",
+        "hop": 1
+      },
+      {
+        "text": "Once a frame is constructed, it is activated by fire placed inside the frame. The fire can be placed in any manner, including use of flint and steel or a fire charge , the impact of a fireball or small fireball , a lightning strike, or natural spread of fire to flammable material adjacent to the portal.",
+        "source_page": "Nether Portal",
+        "hop": 1
+      },
+      {
+        "text": "The fire must be the last placed block in the structure—a fire on an incomplete frame does not result in the portal activating upon the placement of the last obsidian block.",
+        "source_page": "Nether Portal",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Nether Portal",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:45:31.760507+00:00"
+  },
+  {
+    "question": "what does a beacon do in minecraft?",
+    "answer": "A beacon is a block that, when placed on a pyramid of mineral blocks, projects a beam into the sky and provides constant status effects to players within a specific radius. It also functions as a light source that melts snow and ice. In Bedrock Edition, beacons can additionally be waterlogged.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Beacon",
+      "https://minecraft.wiki/w/Effect",
+      "https://minecraft.wiki/w/Light"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Beacon_JE6_BE2.png",
+        "local_filename": "Beacon_JE6_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Beacon_GUI.png",
+        "local_filename": "Beacon_GUI.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Beacon_building.png",
+        "local_filename": "Beacon_building.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Beacon_effects_distance.png",
+        "local_filename": "Beacon_effects_distance.webp"
+      }
+    ],
+    "paraphrases": [
+      "minecraft beacon effects list",
+      "minecraft beacon function guide"
+    ],
+    "gold_spans": [
+      {
+        "text": "A beacon is a block that can be placed in view of the sky , on top of a pyramid made of valuable mineral blocks, to activate it. Once active, it projects a beam upward and can be set to provide constant status effects to all players in a radius around it.",
+        "source_page": "Beacon",
+        "hop": 1
+      },
+      {
+        "text": "Additionally, in Bedrock Edition beacons can also be waterlogged .",
+        "source_page": "Beacon",
+        "hop": 1
+      },
+      {
+        "text": "Beacon blocks can function as light sources, emitting a light level 15. Like other light sources, they melt snow and ice .",
+        "source_page": "Beacon",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Beacon",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:45:42.402532+00:00"
+  },
+  {
+    "question": "how do you tame a wolf in minecraft?",
+    "answer": "A wolf can be tamed by feeding it bones. Each bone has a 1/3 chance of successfully taming the wolf. Once tamed, the wolf will receive a red collar and will not accept any more bones.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Wolf",
+      "https://minecraft.wiki/w/Bone"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Wolf_JE2_BE2.png",
+        "local_filename": "Wolf_JE2_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Tamed_Wolf_with_Red_Collar_JE3_BE4.png",
+        "local_filename": "Tamed_Wolf_with_Red_Collar_JE3_BE4.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Wolf_variants.png",
+        "local_filename": "Wolf_variants.webp"
+      }
+    ],
+    "paraphrases": [
+      "minecraft wolf taming guide",
+      "tame wolf mechanics minecraft"
+    ],
+    "gold_spans": [
+      {
+        "text": "A wolf can be tamed by feeding it bones. The number of bones required is random: each bone has a 1 ⁄ 3 chance of taming the wolf. If the wolf is tamed, it receives a red collar and, in Java Edition , sits if not swimming . Once tamed, a wolf does not accept any more bones.",
+        "source_page": "Wolf",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Wolf",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:45:55.772981+00:00"
+  },
+  {
+    "question": "what mobs can spawn in the deep dark biome?",
+    "answer": "No regular mob spawning occurs in the deep dark biome, though the warden may appear if four shriekers are triggered. In very specific cases, phantoms and skeleton horse traps can still spawn. Additionally, silverfish may spawn via naturally generated infested stone bricks, and bees can spawn via naturally generated beehives.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Warden",
+      "https://minecraft.wiki/w/Phantom",
+      "https://minecraft.wiki/w/Mob_spawning"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Deep_Dark_1.19.png",
+        "local_filename": "Deep_Dark_1.19.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Deep_Dark.png",
+        "local_filename": "Deep_Dark.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Monster_room_in_a_deep_dark_biome.png",
+        "local_filename": "Monster_room_in_a_deep_dark_biome.webp"
+      }
+    ],
+    "paraphrases": [
+      "deep dark biome spawn list",
+      "mobs spawning in deep dark"
+    ],
+    "gold_spans": [
+      {
+        "text": "No regular mob spawning occurs in this biome, but other mechanics are unaffected: monster rooms can still spawn mobs, and in very specific cases phantoms and skeleton horse traps also still spawn. Furthermore, the warden may appear if four shriekers are triggered, giving the player the Darkness effect.",
+        "source_page": "Deep Dark",
+        "hop": 1
+      },
+      {
+        "text": "Silverfish spawn via naturally generated infested stone bricks . Bees spawn via naturally generated beehives .",
+        "source_page": "Deep Dark",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Deep Dark",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:46:07.162535+00:00"
+  },
+  {
+    "question": "what is the hardest block to break in minecraft?",
+    "answer": "Bedrock is an indestructible block that cannot be destroyed by breaking. It has an infinite hardness value and a breaking time of infinity, making it impossible to break in Survival mode.",
+    "difficulty": "hard",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Bedrock",
+      "https://minecraft.wiki/w/Breaking"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Bedrock_JE2_BE2.png",
+        "local_filename": "Bedrock_JE2_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Bedrock_Generated_Mineshaft.jpg",
+        "local_filename": "Bedrock_Generated_Mineshaft.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Bedrock2.png",
+        "local_filename": "Bedrock2.webp"
+      }
+    ],
+    "paraphrases": [
+      "hardest block to mine minecraft",
+      "minecraft highest hardness block"
+    ],
+    "gold_spans": [
+      {
+        "text": "Bedrock can't be destroyed by breaking.",
+        "source_page": "Bedrock",
+        "hop": 1
+      },
+      {
+        "text": "In Survival mode, however, some blocks are unbreakable, like bedrock",
+        "source_page": "Breaking",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Bedrock",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:46:16.792679+00:00"
+  },
+  {
+    "question": "how do you breed villagers?",
+    "answer": "Villagers breed when they are \"willing,\" which is determined by having enough food in their inventory. They also require a sufficient number of unclaimed beds within the village bounds or loaded terrain that they can pathfind to. Once these conditions are met, two villagers nearby will enter mating mode to produce a baby villager.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Village",
+      "https://minecraft.wiki/w/Trading"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Villager_Sharing_Food_MCPE_1.14.60.png",
+        "local_filename": "Villager_Sharing_Food_MCPE_1.14.60.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/VillagerInLove.png",
+        "local_filename": "VillagerInLove.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Babyvillagers_new.png",
+        "local_filename": "Babyvillagers_new.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Villager_on_the_edge_of_a_bed.png",
+        "local_filename": "Villager_on_the_edge_of_a_bed.webp"
+      }
+    ],
+    "paraphrases": [
+      "villager breeding requirements",
+      "minecraft villager breeding mechanics"
+    ],
+    "gold_spans": [
+      {
+        "text": "If the population drops below that point (due to death or removal), but there are at least two villagers left who can reach each other, the villagers mate and breed until the population is at the maximum.",
+        "source_page": "Village",
+        "hop": 1
+      },
+      {
+        "text": "Villagers breed when they are \"willing,\" which is determined by having enough food in their inventory. They also require a sufficient number of unclaimed beds within the village bounds or loaded terrain that they can pathfind to.",
+        "source_page": "Villager",
+        "hop": 2
+      }
+    ],
+    "multi_hop": true,
+    "source_page": "Villager",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:46:28.463927+00:00"
+  },
+  {
+    "question": "what are the rarest items you can get from fishing?",
+    "answer": "The rarest items obtainable from fishing are categorized as treasure, which includes enchanted books, bows, fishing rods, name tags, nautilus shells, and saddles. Without the Luck of the Sea enchantment, there is only a 5% chance of catching a treasure item. The probability of obtaining these items can be increased by using the Luck of the Sea enchantment or the Luck status effect.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Luck_of_the_Sea",
+      "https://minecraft.wiki/w/Enchanted_Book",
+      "https://minecraft.wiki/w/Nautilus_Shell"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Fishing.png",
+        "local_filename": "Fishing.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Bow_JE2_BE1.png",
+        "local_filename": "Bow_JE2_BE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Enchanted_Book_JE1_BE1.png",
+        "local_filename": "Enchanted_Book_JE1_BE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Fishing_Rod_JE2_BE2.png",
+        "local_filename": "Fishing_Rod_JE2_BE2.webp"
+      }
+    ],
+    "paraphrases": [
+      "rarest fishing loot list minecraft",
+      "best fishing treasure drops"
+    ],
+    "gold_spans": [
+      {
+        "text": "A fishing rod without the Luck of the Sea enchantment has an 85% chance of catching fish, a 10% chance of catching junk, and a 5% chance of catching treasure.",
+        "source_page": "Fishing",
+        "hop": 1
+      },
+      {
+        "text": "The fishing rod usually yields fish, but can occasionally catch treasure or junk instead. ... The treasure category includes enchanted books, bows, fishing rods, name tags, nautilus shells, and saddles.",
+        "source_page": "Fishing",
+        "hop": 1
+      },
+      {
+        "text": "Each level of the Luck of the Sea enchantment increases the chance of catching a treasure at the expense of reducing the chances of catching fish and junk. The Luck status effect grants the same benefit.",
+        "source_page": "Fishing",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Fishing",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:46:41.712534+00:00"
+  },
+  {
+    "question": "what is the best food to eat in minecraft?",
+    "answer": "The best food in Minecraft depends on your needs, as items like the Enchanted Golden Apple provide powerful status effects including Resistance and Fire Resistance. For pure hunger and saturation restoration, items like Steak and Cooked Porkchop are among the most effective, restoring 8 hunger points and high saturation values. Players aiming to complete the 'A Balanced Diet' advancement should consume a wide variety of foods, including those that may not be optimal for hunger.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Steak",
+      "https://minecraft.wiki/w/Cooked_Porkchop",
+      "https://minecraft.wiki/w/Enchanted_Golden_Apple"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Food_being_cooked_over_a_fire.jpeg",
+        "local_filename": "Food_being_cooked_over_a_fire.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Suspicious_Stew_JE1_BE1.png",
+        "local_filename": "Suspicious_Stew_JE1_BE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Cooked_Porkchop_JE4_BE3.png",
+        "local_filename": "Cooked_Porkchop_JE4_BE3.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Steak_JE4_BE3.png",
+        "local_filename": "Steak_JE4_BE3.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Eating_Steak.png",
+        "local_filename": "Eating_Steak.webp"
+      }
+    ],
+    "paraphrases": [
+      "best Minecraft food saturation efficiency",
+      "top tier Minecraft food items ranked"
+    ],
+    "gold_spans": [
+      {
+        "text": "Steak and cooked porkchops restore the most hunger out of all stackable foods.",
+        "source_page": "Steak",
+        "hop": 1
+      },
+      {
+        "text": "The enchanted golden apple provides: Absorption IV for 2 minutes (providing HP × 8 ) Regeneration level II for 20 seconds in Java Edition (long enough to heal HP × 8 ) or 30 seconds in Bedrock Edition (long enough to heal HP × 12 ) Fire Resistance I for 5 minutes Resistance I (20% reduced damage from all sources except the void and starvation ) for 5 minutes",
+        "source_page": "Enchanted Golden Apple",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Food",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:46:51.042371+00:00"
+  },
+  {
+    "question": "can you use silk touch to pick up a spawner?",
+    "answer": "No, monster spawners cannot be obtained in Survival mode, even with Silk Touch. While they could be obtained with Silk Touch in earlier versions of the game, this functionality was removed.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Monster_Spawner",
+      "https://minecraft.wiki/w/Silk_Touch"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Monster_Spawner_JE4.png",
+        "local_filename": "Monster_Spawner_JE4.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Pig_Spawner.png",
+        "local_filename": "Pig_Spawner.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Zombie_Spawner.png",
+        "local_filename": "Zombie_Spawner.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Skeleton_Spawner.png",
+        "local_filename": "Skeleton_Spawner.webp"
+      }
+    ],
+    "paraphrases": [
+      "silk touch monster spawner mining",
+      "obtainable mob spawner silk touch"
+    ],
+    "gold_spans": [
+      {
+        "text": "Monster spawners cannot be obtained in Survival, even with Silk Touch .",
+        "source_page": "Monster Spawner",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Monster Spawner",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:47:06.270958+00:00"
+  },
+  {
+    "question": "what is the best enchantment for mining diamonds fast?",
+    "answer": "The best enchantment for mining diamonds fast is Efficiency V. This enchantment increases your mining efficiency, and when applied to a diamond tool, it provides a total mining efficiency of 34. You can also combine this with Haste to mine specific blocks instantly.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Efficiency"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Diamond_Pickaxe_JE3_BE3.png",
+        "local_filename": "Diamond_Pickaxe_JE3_BE3.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Netherite_Pickaxe_JE3_BE2.png",
+        "local_filename": "Netherite_Pickaxe_JE3_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Golden_Pickaxe_JE4_BE3.png",
+        "local_filename": "Golden_Pickaxe_JE4_BE3.webp"
+      }
+    ],
+    "paraphrases": [
+      "best pickaxe enchantment fast diamond mining",
+      "efficiency fortune diamond mining setup"
+    ],
+    "gold_spans": [
+      {
+        "text": "Efficiency is an enchantment applied to tools that increases mining efficiency.",
+        "source_page": "Efficiency",
+        "hop": 1
+      },
+      {
+        "text": "Diamond | 8 | 10 | 13 | 18 | 25 | 34 |",
+        "source_page": "Efficiency",
+        "hop": 1
+      },
+      {
+        "text": "Instant mining for combining Efficiency with Haste to mine specific blocks instantly.",
+        "source_page": "Efficiency",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Efficiency",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:47:16.744278+00:00"
+  },
+  {
+    "question": "does looting affect the drops from the ender dragon?",
+    "answer": "The provided text does not mention the Looting enchantment or its effect on the drops from the ender dragon. It only specifies that the dragon drops 12,000 XP the first time it is defeated and 500 XP for subsequent defeats.",
+    "difficulty": "easy",
+    "relevant_links": [],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Dragon_Death.png",
+        "local_filename": "Dragon_Death.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Ender_dragon.jpg",
+        "local_filename": "Ender_dragon.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Ender_dragon-bright.jpg",
+        "local_filename": "Ender_dragon-bright.webp"
+      }
+    ],
+    "paraphrases": [
+      "looting enchantment ender dragon drops",
+      "does looting work on ender dragon"
+    ],
+    "gold_spans": [
+      {
+        "text": "During this ascension, the following occurs: Starting 7.7 seconds (154 game ticks ) after the dragon begins ascending, a total of 12000 XP experience points (ten drops of 960 and one drop of 2400) appear out of the dragon's body (one by one, per tick) — enough to bring a player from no experience all the way up to level 68. When a re-summoned ender dragon is slain, the same events occur, except that only 500 XP experience points are dropped",
+        "source_page": "Ender Dragon",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Ender Dragon",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:47:26.877197+00:00"
+  },
+  {
+    "question": "can you enchant a shield with unbreaking?",
+    "answer": "Yes, a shield can be enchanted with Unbreaking. This enchantment can be applied to the shield using an anvil.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Shield"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Shield_JE2_BE1.png",
+        "local_filename": "Shield_JE2_BE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Shield_Block.png",
+        "local_filename": "Shield_Block.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Anvil_%28N%29_JE1_BE1.png",
+        "local_filename": "Anvil_(N)_JE1_BE1.webp"
+      }
+    ],
+    "paraphrases": [
+      "shield unbreaking enchantment",
+      "can shields have unbreaking"
+    ],
+    "gold_spans": [
+      {
+        "text": "A shield can receive the following enchantments : | Name | Description | Max Level | Method | Weight | | --- | --- | --- | --- | --- | | Unbreaking | Grants a chance to negate durability consumption. | III | Anvil | 5 |",
+        "source_page": "Shield",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Shield",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:47:36.617740+00:00"
+  },
+  {
+    "question": "how many blocks can a piston push?",
+    "answer": "A piston can move up to twelve blocks at once. This limit applies to both pushing and pulling actions.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Piston"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Stacked_pistons_powered_by_one_redstone_line.png",
+        "local_filename": "Stacked_pistons_powered_by_one_redstone_line.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Piston_normal_mod.png",
+        "local_filename": "Piston_normal_mod.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Piston_normal_extended_mod.png",
+        "local_filename": "Piston_normal_extended_mod.webp"
+      }
+    ],
+    "paraphrases": [
+      "piston push limit blocks",
+      "maximum blocks pushed by piston"
+    ],
+    "gold_spans": [
+      {
+        "text": "A piston can move up to twelve blocks at once.",
+        "source_page": "Piston",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Piston",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:47:47.009552+00:00"
+  },
+  {
+    "question": "do creepers deal more damage in hard mode?",
+    "answer": "Yes, creepers deal more damage in Hard difficulty. Depending on the difficulty, creeper damage is scaled, with Hard difficulty dealing approximately 33% more damage than in Normal mode.",
+    "difficulty": "hard",
+    "relevant_links": [],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Creeper_JE3_BE1.png",
+        "local_filename": "Creeper_JE3_BE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/ExplosionComparison.png",
+        "local_filename": "ExplosionComparison.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/CreeperExplosion.png",
+        "local_filename": "CreeperExplosion.webp"
+      }
+    ],
+    "paraphrases": [
+      "creeper damage scaling hard mode",
+      "minecraft creeper explosion damage hard difficulty"
+    ],
+    "gold_spans": [
+      {
+        "text": "Creeper explosions can destroy blocks and deal massive amounts of damage , which can be completely blocked using a shield .",
+        "source_page": "Creeper",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Creeper",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:47:56.834342+00:00"
+  },
+  {
+    "question": "can you breed two different types of horses to get a mule?",
+    "answer": "No, a mule is created by breeding a horse and a donkey together. Mules cannot breed with other mules, and they are the only hybrid mobs in Minecraft.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Mule",
+      "https://minecraft.wiki/w/Horse",
+      "https://minecraft.wiki/w/Donkey"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Mule_JE5.png",
+        "local_filename": "Mule_JE5.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/DonkeyAndMule.png",
+        "local_filename": "DonkeyAndMule.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Baby_mule_and_its_parent.jpg",
+        "local_filename": "Baby_mule_and_its_parent.webp"
+      }
+    ],
+    "paraphrases": [
+      "horse donkey breeding mule mechanics",
+      "mule breeding requirements minecraft"
+    ],
+    "gold_spans": [
+      {
+        "text": "The only way to produce a mule (other than using a spawn egg) is to cross-breed a horse with a donkey.",
+        "source_page": "Mule",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Mule",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:48:06.879363+00:00"
+  },
+  {
+    "question": "what is the maximum level of protection you can get from armor?",
+    "answer": "The maximum level of a protection enchantment is IV (4). By combining the Enchantment Protection Factor (EPF) of multiple armor pieces, players can reach a maximum damage reduction of 80% (20/25).",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Damage"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/All_Armor_Displayed.png",
+        "local_filename": "All_Armor_Displayed.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Steve_in_netherite_armor.png",
+        "local_filename": "Steve_in_netherite_armor.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Damage_reduction_v3.png",
+        "local_filename": "Damage_reduction_v3.webp"
+      }
+    ],
+    "paraphrases": [
+      "maximum protection enchantment level armor",
+      "max armor protection value cap"
+    ],
+    "gold_spans": [
+      {
+        "text": "These enchantments can reduce up to 20% of the original damage.",
+        "source_page": "Damage",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Armor",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:48:24.579292+00:00"
+  },
+  {
+    "question": "how do I craft a feather falling potion?",
+    "answer": "There is no \"feather falling\" potion in Minecraft. The page lists a \"Potion of Slow Falling,\" which allows the player to fall at a slower rate and reduces fall damage to zero, but it does not mention a \"feather falling\" potion.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Potion_of_Slow_Falling"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Potion_of_Slow_Falling_JE1.png",
+        "local_filename": "Potion_of_Slow_Falling_JE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Potion_of_Slow_Falling_JE2_BE1.png",
+        "local_filename": "Potion_of_Slow_Falling_JE2_BE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Water_Bottle_JE2_BE2.png?acae5",
+        "local_filename": "Water_Bottle_JE2_BE2.webp"
+      }
+    ],
+    "paraphrases": [
+      "feather falling potion recipe",
+      "minecraft slow falling potion brewing"
+    ],
+    "gold_spans": [
+      {
+        "text": "A potion of Slow Falling is a potion that provides Slow Falling when used.",
+        "source_page": "Potion of Slow Falling",
+        "hop": 1
+      },
+      {
+        "text": "Phantom Membrane + Awkward Potion",
+        "source_page": "Potion of Slow Falling",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Potion",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:48:35.744890+00:00"
+  },
+  {
+    "question": "how do I craft a pickaxe?",
+    "answer": "To craft a wooden, golden, stone, copper, iron, or diamond pickaxe, combine two sticks with three of the corresponding tier's material in a crafting table. Netherite pickaxes are obtained by using a smithing table to combine a diamond pickaxe with a netherite ingot and a netherite upgrade.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Crafting",
+      "https://minecraft.wiki/w/Smithing"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Wooden_Pickaxe_JE3_BE3.png",
+        "local_filename": "Wooden_Pickaxe_JE3_BE3.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Stone_Pickaxe_JE2_BE2.png",
+        "local_filename": "Stone_Pickaxe_JE2_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Iron_Pickaxe_JE3_BE2.png",
+        "local_filename": "Iron_Pickaxe_JE3_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Diamond_Pickaxe_JE3_BE3.png",
+        "local_filename": "Diamond_Pickaxe_JE3_BE3.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Netherite_Pickaxe_JE3_BE2.png",
+        "local_filename": "Netherite_Pickaxe_JE3_BE2.webp"
+      }
+    ],
+    "paraphrases": [
+      "pickaxe crafting recipe",
+      "minecraft pickaxe crafting guide"
+    ],
+    "gold_spans": [
+      {
+        "text": "Wooden, golden, stone, copper, iron, and diamond pickaxes are crafted using two sticks and three of the tier’s material.",
+        "source_page": "Pickaxe",
+        "hop": 1
+      },
+      {
+        "text": "Upgrading is a process for turning diamond gear into netherite gear. This is the only way that netherite gear can be obtained.",
+        "source_page": "Smithing",
+        "hop": 2
+      },
+      {
+        "text": "Netherite Upgrade + Diamond Pickaxe + Netherite Ingot",
+        "source_page": "Smithing",
+        "hop": 2
+      }
+    ],
+    "multi_hop": true,
+    "source_page": "Pickaxe",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:48:50.617932+00:00"
+  },
+  {
+    "question": "how do you craft a furnace in minecraft?",
+    "answer": "To craft a furnace, you need to place eight cobblestone, blackstone, or cobbled deepslate blocks into a crafting table, leaving the center slot empty. These stone-tier blocks can be used interchangeably in the recipe.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Crafting",
+      "https://minecraft.wiki/w/Cobblestone",
+      "https://minecraft.wiki/w/Blackstone"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Furnace_%28S%29_JE4.png",
+        "local_filename": "Furnace_(S)_JE4.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Furnace_GUI.png",
+        "local_filename": "Furnace_GUI.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Minecraft_2012-09-26_12-28-49.png",
+        "local_filename": "Minecraft_2012-09-26_12-28-49.webp"
+      }
+    ],
+    "paraphrases": [
+      "minecraft furnace crafting recipe",
+      "crafting table furnace requirements"
+    ],
+    "gold_spans": [
+      {
+        "text": "To craft a furnace, you need to place eight cobblestone, blackstone, or cobbled deepslate blocks into a crafting table, leaving the center slot empty. These stone-tier blocks can be used interchangeably in the recipe.",
+        "source_page": "Furnace",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Furnace",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:49:05.754111+00:00"
+  },
+  {
+    "question": "what is the crafting recipe for a cake?",
+    "answer": "To craft a cake, you need three milk buckets, one sugar, one egg (any type), and three wheat. The recipe is arranged in the crafting grid with the three milk buckets in the top row, sugar and an egg in the middle row, and three wheat in the bottom row.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Crafting",
+      "https://minecraft.wiki/w/Milk_Bucket",
+      "https://minecraft.wiki/w/Wheat"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Cake_JE4.png",
+        "local_filename": "Cake_JE4.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Cake_with_Candle_JE1_BE1.png",
+        "local_filename": "Cake_with_Candle_JE1_BE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Cake_%28item%29_JE1_BE1.png",
+        "local_filename": "Cake_(item)_JE1_BE1.webp"
+      }
+    ],
+    "paraphrases": [
+      "minecraft cake crafting recipe",
+      "cake ingredients recipe"
+    ],
+    "gold_spans": [
+      {
+        "text": "The recipe is arranged in the crafting grid with the three milk buckets in the top row, sugar and an egg in the middle row, and three wheat in the bottom row.",
+        "source_page": "Cake",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Cake",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:49:20.857851+00:00"
+  },
+  {
+    "question": "how do I craft an enchantment table?",
+    "answer": "To craft an enchanting table, you need to combine one book, two diamonds, and four obsidian blocks. The recipe requires placing the book in the top-middle slot, diamonds in the left and right middle slots, and obsidian in the bottom row and the center slot.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Book",
+      "https://minecraft.wiki/w/Diamond",
+      "https://minecraft.wiki/w/Obsidian"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Enchanting_Table_JE4_BE2.png",
+        "local_filename": "Enchanting_Table_JE4_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Enchanting_Table_GUI.png",
+        "local_filename": "Enchanting_Table_GUI.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Enchanting-Table.png",
+        "local_filename": "Enchanting-Table.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Enchantsetup.png",
+        "local_filename": "Enchantsetup.webp"
+      }
+    ],
+    "paraphrases": [
+      "enchantment table crafting recipe",
+      "minecraft enchantment table ingredients"
+    ],
+    "gold_spans": [
+      {
+        "text": "Book + Diamond + Obsidian | [Crafting Recipe: [., Book, .] [Diamond, Obsidian, Diamond] [Obsidian, Obsidian, Obsidian] -> Enchanting Table]",
+        "source_page": "Enchanting Table",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Enchanting Table",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:49:32.003904+00:00"
+  },
+  {
+    "question": "how do you make an observer in minecraft?",
+    "answer": "To craft an observer, you need to combine three cobblestone blocks, two redstone dust, and one nether quartz in a crafting table. The recipe requires placing the three cobblestone blocks in the top row, the two redstone dust in the bottom-left and bottom-center slots, and the nether quartz in the bottom-right slot.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Crafting",
+      "https://minecraft.wiki/w/Cobblestone",
+      "https://minecraft.wiki/w/Redstone_Dust"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Observer_JE4_BE3.png",
+        "local_filename": "Observer_JE4_BE3.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Nether_Quartz_JE2_BE2.png",
+        "local_filename": "Nether_Quartz_JE2_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Observer_%28front_texture%29_pBE20160502.png",
+        "local_filename": "Observer_(front_texture)_pBE20160502.webp"
+      }
+    ],
+    "paraphrases": [
+      "minecraft observer crafting recipe",
+      "observer block ingredients minecraft"
+    ],
+    "gold_spans": [
+      {
+        "text": "Cobblestone + Redstone Dust + Nether Quartz | [Crafting Recipe: [Cobblestone, Cobblestone, Cobblestone] [Redstone Dust, Redstone Dust, Nether Quartz] [Cobblestone, Cobblestone, Cobblestone] -> Observer]",
+        "source_page": "Observer",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Observer",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:49:42.165349+00:00"
+  },
+  {
+    "question": "what is the difference between crafting a sword and an axe?",
+    "answer": "All swords except netherite are crafted using a stick and two of the tier's material, such as planks, ingots, or stone-tier blocks. The provided text does not contain information regarding the crafting recipe for an axe.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Crafting",
+      "https://minecraft.wiki/w/Stick"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Wooden_Sword_JE2_BE2.png",
+        "local_filename": "Wooden_Sword_JE2_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Stone_Sword_JE2_BE2.png",
+        "local_filename": "Stone_Sword_JE2_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Iron_Sword_JE2_BE2.png",
+        "local_filename": "Iron_Sword_JE2_BE2.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Diamond_Sword_JE3_BE3.png",
+        "local_filename": "Diamond_Sword_JE3_BE3.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Netherite_Sword_JE2_BE2.png",
+        "local_filename": "Netherite_Sword_JE2_BE2.webp"
+      }
+    ],
+    "paraphrases": [
+      "sword vs axe crafting recipes",
+      "crafting sword vs axe material requirements"
+    ],
+    "gold_spans": [
+      {
+        "text": "All swords except netherite are crafted using a stick and two of the tier's material.",
+        "source_page": "Sword",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Sword",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:49:52.826376+00:00"
+  },
+  {
+    "question": "how do i craft a target block and a dispenser?",
+    "answer": "A dispenser is crafted using seven cobblestone, one bow, and one redstone dust. The provided text does not contain information on how to craft a target block.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Dispenser",
+      "https://minecraft.wiki/w/Crafting",
+      "https://minecraft.wiki/w/Redstone_Dust"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Dispenser_%28S%29_JE4.png",
+        "local_filename": "Dispenser_(S)_JE4.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Dispenser_GUI.png",
+        "local_filename": "Dispenser_GUI.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/DispenserPlacement.png",
+        "local_filename": "DispenserPlacement.webp"
+      }
+    ],
+    "paraphrases": [
+      "target block recipe",
+      "dispenser crafting ingredients"
+    ],
+    "gold_spans": [
+      {
+        "text": "A dispenser is a low-capacity storage block that can fire projectiles , use certain items or tools or place certain blocks, fluids or entities when given a redstone signal. ... | Cobblestone + Bow + Redstone Dust | [Crafting Recipe: [Cobblestone, Cobblestone, Cobblestone] [Cobblestone, Bow, Cobblestone] [Cobblestone, Redstone Dust, Cobblestone] -> Dispenser] | The bow can be of any durability . Enchantments on the bow do not affect the resulting dispenser.",
+        "source_page": "Dispenser",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Dispenser",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:50:03.327363+00:00"
+  },
+  {
+    "question": "what is the crafting sequence to get a daylight detector starting from raw quartz?",
+    "answer": "To craft a daylight detector, you must combine three pieces of glass, three pieces of Nether Quartz, and three wooden slabs of any type. The crafting recipe requires placing the glass in the top row, the Nether Quartz in the middle row, and the wooden slabs in the bottom row of a crafting table.",
+    "difficulty": "easy",
+    "relevant_links": [
+      "https://minecraft.wiki/w/Crafting",
+      "https://minecraft.wiki/w/Glass",
+      "https://minecraft.wiki/w/Nether_Quartz"
+    ],
+    "relevant_images": [
+      {
+        "url": "https://minecraft.wiki/images/Daylight_Detector_JE1_BE1.png",
+        "local_filename": "Daylight_Detector_JE1_BE1.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Daylight-sensor-recipe.jpeg",
+        "local_filename": "Daylight-sensor-recipe.webp"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Nether_Quartz_JE2_BE2.png",
+        "local_filename": "Nether_Quartz_JE2_BE2.webp"
+      }
+    ],
+    "paraphrases": [
+      "daylight detector crafting recipe raw quartz",
+      "quartz to daylight detector craft steps"
+    ],
+    "gold_spans": [
+      {
+        "text": "Glass + Nether Quartz + Any Wooden Slab | [Crafting Recipe: [Glass, Glass, Glass] [Nether Quartz, Nether Quartz, Nether Quartz] [(Oak Slab or Spruce Slab or Birch Slab or Jungle Slab or Acacia Slab or Dark Oak Slab or Mangrove Slab or Cherry Slab or Pale Oak Slab or Bamboo Slab or Crimson Slab or Warped Slab), (Oak Slab or Spruce Slab or Birch Slab or Jungle Slab or Acacia Slab or Dark Oak Slab or Mangrove Slab or Cherry Slab or Pale Oak Slab or Bamboo Slab or Crimson Slab or Warped Slab), (Oak Slab or Spruce Slab or Birch Slab or Jungle Slab or Acacia Slab or Dark Oak Slab or Mangrove Slab or Cherry Slab or Pale Oak Slab or Bamboo Slab or Crimson Slab or Warped Slab)] -> Daylight Detector]",
+        "source_page": "Daylight Detector",
+        "hop": 1
+      }
+    ],
+    "multi_hop": false,
+    "source_page": "Daylight Detector",
+    "generator_model": "google/gemini-3.1-flash-lite-preview",
+    "generated_at": "2026-04-27T14:50:14.470029+00:00"
   }
 ]

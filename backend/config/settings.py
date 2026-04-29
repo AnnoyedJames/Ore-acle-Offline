@@ -109,11 +109,43 @@ LLM_MODELS: dict[str, LLMModelInfo] = {
 DEFAULT_LLM = "gemini-flash-lite"
 
 
+# ---------------------------------------------------------------------------
+# Reranker Model Registry
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class RerankerModelInfo:
+    """Describes a reranker used after first-stage retrieval."""
+    model_id: str
+    backend: str  # "local" (sentence-transformers CrossEncoder) or "zeroentropy"
+    label: str
+
+
+RERANKER_MODELS: dict[str, RerankerModelInfo] = {
+    "bge-reranker-v2-m3": RerankerModelInfo(
+        model_id="BAAI/bge-reranker-v2-m3",
+        backend="local",
+        label="BGE Reranker v2-m3",
+    ),
+    "qwen3-reranker-4b": RerankerModelInfo(
+        model_id="Qwen/Qwen3-Reranker-4B",
+        backend="local",
+        label="Qwen3-Reranker-4B",
+    ),
+    "zerank-2": RerankerModelInfo(
+        model_id="zeroentropy/zerank-2",
+        backend="local",
+        label="ZeroEntropy zerank-2",
+    ),
+}
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables / .env file."""
 
     # --- OpenRouter (evals & generation gateway) ---
     openrouter_api_key: str = Field(default="", description="OpenRouter API key")
+    zeroentropy_api_key: str = Field(default="", description="ZeroEntropy API key")
 
     # --- Embedding ---
     embedding_model: str = Field(
@@ -169,12 +201,20 @@ class Settings(BaseSettings):
     retrieval_keyword_candidates: int = Field(
         default=15, description="Candidates from keyword search before RRF"
     )
+    retrieval_rerank_candidates: int = Field(
+        default=30,
+        description="Number of fused candidates to pass into the reranker",
+    )
     rrf_k: int = Field(
         default=20, description="RRF constant (higher = more weight to lower ranks)"
     )
     rrf_alpha: float = Field(
         default=0.8,
         description="Semantic weight in weighted RRF; keyword weight = 1 - rrf_alpha",
+    )
+    reranker_model: str = Field(
+        default="",
+        description="Optional reranker key from RERANKER_MODELS; blank disables reranking",
     )
 
     # --- Paths ---

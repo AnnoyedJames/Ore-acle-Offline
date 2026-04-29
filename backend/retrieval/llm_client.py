@@ -11,9 +11,11 @@ Usage:
 
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
+import httpx
 from openai import OpenAI
 
 from backend.config.settings import LLM_MODELS, LLMModelInfo
@@ -60,6 +62,7 @@ class LLMClient:
             self._client = OpenAI(
                 base_url=OLLAMA_BASE_URL,
                 api_key="ollama",  # Ollama ignores this but the SDK requires it
+                timeout=httpx.Timeout(600.0, connect=120.0),  # generous connect timeout for cold model loads
             )
         elif self.info.backend == "openrouter":
             api_key = os.environ.get("OPENROUTER_API_KEY", "")

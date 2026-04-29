@@ -51,6 +51,7 @@ from backend.config.settings import (
     DEFAULT_EMBEDDING_MODEL,
     EMBEDDING_MODELS,
     LLM_MODELS,
+    RERANKER_MODELS,
     settings,
 )
 from backend.database.local_stores import ChromaStore, SQLiteStore
@@ -75,6 +76,7 @@ EMBEDDING_AXIS_MODELS = list(EMBEDDING_MODELS.keys())
 SEARCH_AXIS_MODES = ["semantic", "keyword_ootb", "keyword", "hybrid"]
 RRF_ALPHA_SWEEP = [0.5, 0.6, 0.7, 0.8, 0.9]
 CHUNKING_AXIS_STRATEGIES = ["section_aware", "langchain"]
+RERANKER_AXIS_MODELS = [None, "bge-reranker-v2-m3", "qwen3-reranker-4b", "zerank-2"]
 
 # Per-chunking-strategy metadata: (chunks_file, sqlite_db_path)
 CHUNKING_META: dict[str, dict] = {
@@ -425,6 +427,7 @@ def _build_search(
     chunking: str,
     rrf_alpha: float | None = None,
     rrf_k: int | None = None,
+    reranker: str | None = None,
 ) -> HybridSearch:
     """Construct a HybridSearch wired to the right stores/embedder.
 
@@ -433,7 +436,7 @@ def _build_search(
     are evaluated.
     """
     meta = CHUNKING_META.get(chunking, CHUNKING_META["section_aware"])
-    embedder = get_embedder(embedding_model)
+    embedder = None if search_mode.startswith("keyword") else get_embedder(embedding_model)
     collection_key = embedding_model + meta["collection_suffix"]
 
     if collection_key not in _chroma_cache:
@@ -447,7 +450,7 @@ def _build_search(
     sqlite = _sqlite_cache[sqlite_key]
 
     return HybridSearch(chroma=chroma, sqlite=sqlite, embedder=embedder,
-                        rrf_alpha=rrf_alpha, rrf_k=rrf_k)
+                        rrf_alpha=rrf_alpha, rrf_k=rrf_k, reranker_key=reranker)
 
 
 def _citation_faithfulness(answer: str, results: list, source_page: str) -> Optional[float]:
@@ -653,6 +656,26 @@ def run_retriever_axis(
              "label": f"hybrid|α={a:.2f}|k=20"}
             for a in RRF_ALPHA_SWEEP
         ]
+    elif axis == "reranker":
+        configs = [
+            {
+                "embedding": DEFAULT_EMBEDDING_MODEL,
+                "search": DEFAULT_SEARCH_MODE,
+                "chunking": DEFAULT_CHUNKING,
+                "reranker": None,
+                "label": f"{DEFAULT_EMBEDDING_MODEL}|{DEFAULT_SEARCH_MODE}|{DEFAULT_CHUNKING}|no-reranker",
+            }
+        ] + [
+            {
+                "embedding": DEFAULT_EMBEDDING_MODEL,
+                "search": DEFAULT_SEARCH_MODE,
+                "chunking": DEFAULT_CHUNKING,
+                "reranker": r,
+                "label": f"{DEFAULT_EMBEDDING_MODEL}|{DEFAULT_SEARCH_MODE}|{DEFAULT_CHUNKING}|{RERANKER_MODELS[r].label}",
+            }
+            for r in RERANKER_AXIS_MODELS
+            if r is not None
+        ]
     else:
         raise ValueError(f"Unknown axis: {axis}")
 
@@ -677,6 +700,7 @@ def run_retriever_axis(
             chunking=cfg["chunking"],
             rrf_alpha=cfg.get("rrf_alpha"),
             rrf_k=cfg.get("rrf_k"),
+            reranker=cfg.get("reranker"),
         )
 
         # Use the right chunks_lookup for this chunking strategy
@@ -689,7 +713,7 @@ def run_retriever_axis(
         # Resolve per-model query embedding cache (disk-backed).
         # Keyword-only configs need no embeddings.
         query_vec_cache: dict[str, Any] = {}  # question_text -> np.ndarray | None
-        if cfg["search"] != "keyword":
+        if not cfg["search"].startswith("keyword"):
             model_id = cfg["embedding"]
             if model_id not in _embed_cache:
                 _embed_cache[model_id] = _load_or_build_query_cache(
@@ -701,10 +725,10 @@ def run_retriever_axis(
 
         for q in tqdm(questions, desc=label, leave=False):
             qtext = q["question"]
-            qvec = query_vec_cache.get(qtext) if cfg["search"] != "keyword" else None
+            qvec = query_vec_cache.get(qtext) if not cfg["search"].startswith("keyword") else None
 
             # Skip questions where embedding failed — don't pollute metrics with 0s
-            if cfg["search"] != "keyword" and qvec is None:
+            if not cfg["search"].startswith("keyword") and qvec is None:
                 per_q.append({
                     "question": qtext,
                     "source_page": q.get("source_page", ""),
@@ -806,6 +830,7 @@ def run_generator(
     embedding: str,
     search_mode: str,
     chunking: str,
+    reranker: str | None = None,
     model_keys: list[str] | None = None,
 ) -> dict:
     """Run the generator evaluation: best retrieval -> all LLMs.
@@ -826,6 +851,7 @@ def run_generator(
         embedding_model=embedding,
         search_mode=search_mode,
         chunking=chunking,
+        reranker=reranker,
     )
 
     # Pre-run retrieval for all questions (same for every LLM)
@@ -842,6 +868,7 @@ def run_generator(
         "embedding": embedding,
         "search_mode": search_mode,
         "chunking": chunking,
+        "reranker": reranker,
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
 
@@ -852,6 +879,16 @@ def run_generator(
         info = LLM_MODELS[mkey]
         logger.info(f"\n{'='*60}\nLLM: {info.label} ({info.backend})\n{'='*60}")
         client = get_llm_client(mkey)
+
+        # Warm up Ollama models: send a tiny dummy request so the model is loaded
+        # before the timed evaluation loop begins.
+        if info.backend == "ollama":
+            logger.info(f"Warming up Ollama model {info.model_id} (may take up to 2 min for cold load)...")
+            try:
+                client.generate(query="Say: ready", context="", max_tokens=5, temperature=0.0)
+                logger.info(f"Warmup complete for {info.label}.")
+            except Exception as _warm_err:
+                logger.warning(f"Warmup failed for {info.label}: {_warm_err} — proceeding anyway.")
 
         # Rolling checkpoint path — one file per model, overwritten every _SAVE_EVERY questions
         ckpt_path = RESULTS_DIR / f"generator_ckpt_{mkey}.json"
@@ -971,6 +1008,7 @@ def run_generator(
             "embedding": embedding,
             "search_mode": search_mode,
             "chunking": chunking,
+            "reranker": reranker,
         },
         "summary": summary_rows,
         "per_question": all_results,
@@ -1053,7 +1091,7 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--axis",
-        choices=["embedding", "search", "chunking", "rrf"],
+        choices=["embedding", "search", "chunking", "rrf", "reranker"],
         default=None,
         help="Retriever axis to vary (required for --phase retriever)",
     )
@@ -1071,6 +1109,11 @@ def parse_args() -> argparse.Namespace:
         "--chunking",
         default=DEFAULT_CHUNKING,
         help=f"Chunking strategy for generator phase (default: {DEFAULT_CHUNKING})",
+    )
+    p.add_argument(
+        "--reranker",
+        default=None,
+        help="Optional reranker key for generator phase (e.g. bge-reranker-v2-m3, qwen3-reranker-4b, zerank-2)",
     )
     p.add_argument(
         "--models",
@@ -1121,6 +1164,7 @@ def main():
             embedding=args.embedding,
             search_mode=args.search_mode,
             chunking=args.chunking,
+            reranker=args.reranker,
             model_keys=args.models,
         )
 

@@ -71,4 +71,5 @@ nltk>=3.8.0
 FlagEmbedding>=1.2.0
 einops>=0.8.0
 boto3>=1.35.0
+zeroentropy>=0.1.0
 

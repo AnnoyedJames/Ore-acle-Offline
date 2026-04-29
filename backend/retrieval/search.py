@@ -12,7 +12,7 @@ Usage:
 
 import json
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import numpy as np
@@ -20,6 +20,7 @@ import numpy as np
 from backend.config.settings import settings
 from backend.database.local_stores import ChromaStore, SQLiteStore
 from backend.embeddings.generator import EmbeddingGenerator
+from backend.retrieval.reranker import get_reranker
 from dataclasses import dataclass, field
 
 @dataclass
@@ -38,6 +39,7 @@ class SearchResult:
     images: list[dict] = field(default_factory=list)
     semantic_score: Optional[float] = None
     keyword_score: Optional[float] = None
+    reranker_score: Optional[float] = None
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +64,19 @@ class HybridSearch:
         embedder: Optional[EmbeddingGenerator] = None,
         rrf_alpha: Optional[float] = None,
         rrf_k: Optional[int] = None,
+        reranker_key: Optional[str] = None,
+        rerank_candidates: Optional[int] = None,
     ):
         self.chroma = chroma or ChromaStore()
         self.sqlite = sqlite or SQLiteStore()
         self._embedder = embedder
+        self.reranker_key = reranker_key if reranker_key is not None else (settings.reranker_model or None)
+        self.rerank_candidates = (
+            rerank_candidates
+            if rerank_candidates is not None
+            else settings.retrieval_rerank_candidates
+        )
+        self._reranker = None
         # Search parameters from settings (can be overridden per-instance)
         self.semantic_candidates = settings.retrieval_semantic_candidates
         self.keyword_candidates = settings.retrieval_keyword_candidates
@@ -80,11 +91,20 @@ class HybridSearch:
             self._embedder = get_embedder()
         return self._embedder
 
+    @property
+    def reranker(self):
+        if not self.reranker_key:
+            return None
+        if self._reranker is None:
+            self._reranker = get_reranker(self.reranker_key)
+        return self._reranker
+
     def _semantic_search(
         self,
         query: str,
         filter_types: Optional[list[str]] = None,
         query_vec: Optional["np.ndarray"] = None,
+        limit: Optional[int] = None,
     ) -> list[dict]:
         """Embed query and search ChromaDB, optionally filtered by page_type.
 
@@ -96,13 +116,13 @@ class HybridSearch:
         """
         if query_vec is None:
             query_vec = self.embedder.embed_query(query)
-        results = self.chroma.query(query_vec, n_results=self.semantic_candidates,
+        results = self.chroma.query(query_vec, n_results=limit or self.semantic_candidates,
                                     filter_page_types=filter_types or [])
         return results
 
-    def _keyword_search(self, query: str, mode: str = "custom") -> list[dict]:
+    def _keyword_search(self, query: str, mode: str = "custom", limit: Optional[int] = None) -> list[dict]:
         """Search SQLite FTS5 for matching chunks."""
-        return self.sqlite.search(query, limit=self.keyword_candidates, mode=mode)
+        return self.sqlite.search(query, limit=limit or self.keyword_candidates, mode=mode)
 
     def _rrf_merge(
         self,
@@ -110,6 +130,7 @@ class HybridSearch:
         keyword_results: list[dict],
         chunks_lookup: dict[str, dict],
         alpha_override: Optional[float] = None,
+        candidate_limit: Optional[int] = None,
     ) -> list[SearchResult]:
         """Merge results using Weighted Reciprocal Rank Fusion.
 
@@ -133,11 +154,11 @@ class HybridSearch:
         for rank, result in enumerate(keyword_results):
             cid = result["chunk_id"]
             scores[cid] = scores.get(cid, 0) + (1.0 - alpha) / (k + rank + 1)
-            keyword_scores[cid] = abs(result.get("rank", 0))
+            keyword_scores[cid] = result.get("bm25_norm", 0.0)
 
         # Sort by RRF score descending
         sorted_ids = sorted(scores.keys(), key=lambda x: -scores[x])
-        top_ids = sorted_ids[: self.top_k]
+        top_ids = sorted_ids[: (candidate_limit or self.top_k)]
 
         # Build a lookup from all result sources in priority order:
         # 1. ChromaDB semantic metadata (has everything except text)
@@ -217,6 +238,27 @@ class HybridSearch:
 
         return results
 
+    def _format_rerank_document(self, result: SearchResult) -> str:
+        return (
+            f"Title: {result.page_title}\n"
+            f"Section: {result.section_heading}\n"
+            f"Passage: {result.text}"
+        )
+
+    def _rerank_results(self, query: str, candidates: list[SearchResult]) -> list[SearchResult]:
+        if not self.reranker or not candidates:
+            return candidates[: self.top_k]
+
+        docs = [self._format_rerank_document(result) for result in candidates]
+        ranked = self.reranker.rerank(query, docs, top_n=min(self.top_k, len(docs)))
+
+        reranked: list[SearchResult] = []
+        for item in ranked:
+            result = candidates[item.index]
+            result.reranker_score = item.score
+            reranked.append(result)
+        return reranked
+
     def search(
         self,
         query: str,
@@ -251,21 +293,27 @@ class HybridSearch:
             Top-k results sorted by RRF score.
         """
         _alpha_override: Optional[float] = None
+        semantic_limit = self.semantic_candidates
+        keyword_limit = self.keyword_candidates
+        if self.reranker_key:
+            semantic_limit = max(self.semantic_candidates, self.rerank_candidates)
+            keyword_limit = max(self.keyword_candidates, self.rerank_candidates)
+
         if mode == "semantic":
-            semantic_results = self._semantic_search(query, filter_types, query_vec=query_vec)
+            semantic_results = self._semantic_search(query, filter_types, query_vec=query_vec, limit=semantic_limit)
             keyword_results = []
         elif mode in ("keyword", "keyword_ootb", "keyword_custom"):
             kw_mode = "ootb" if mode == "keyword_ootb" else "custom"
             semantic_results = []
-            keyword_results = self._keyword_search(query, mode=kw_mode)
+            keyword_results = self._keyword_search(query, mode=kw_mode, limit=keyword_limit)
         else:  # hybrid
             kw_mode = "ootb" if mode == "hybrid_ootb" else "custom"
             # Run semantic and keyword searches in parallel
             with ThreadPoolExecutor(max_workers=2) as executor:
                 sem_future = executor.submit(
-                    self._semantic_search, query, filter_types, query_vec
+                    self._semantic_search, query, filter_types, query_vec, semantic_limit
                 )
-                kw_future = executor.submit(self._keyword_search, query, kw_mode)
+                kw_future = executor.submit(self._keyword_search, query, kw_mode, keyword_limit)
                 semantic_results = sem_future.result()
                 keyword_results = kw_future.result()
             # Semantic quality gate: if the best cosine similarity is below
@@ -289,17 +337,21 @@ class HybridSearch:
             keyword_results,
             chunks_lookup or {},
             alpha_override=_alpha_override if mode == "hybrid" else None,
+            candidate_limit=self.rerank_candidates if self.reranker_key else None,
         )
 
         # Post-filter keyword-only results by page_type if filter requested
         if filter_types and mode in ("keyword", "hybrid"):
             merged = [r for r in merged if r.page_type in filter_types]
 
+        merged = self._rerank_results(query, merged)
+
         logger.info(f"RRF merged \u2192 {len(merged)} results")
         for i, r in enumerate(merged[:3]):
             logger.info(
                 f"  #{i + 1}: {r.page_title} > {r.section_heading} "
-                f"(rrf={r.rrf_score:.4f})"
+                f"(rrf={r.rrf_score:.4f}"
+                f"{f', rerank={r.reranker_score:.4f}' if r.reranker_score is not None else ''})"
             )
 
         # Build list of already-included chunk IDs
@@ -309,7 +361,7 @@ class HybridSearch:
         # Use a lightweight keyword query that targets the UI string we added
         recipe_query = query.lower().replace("how do you craft", "").replace("how do i craft", "").replace("how to craft", "").replace("recipe for", "").strip()
         if len(recipe_query) > 2:
-            crafting_results = self._keyword_search(f'"[Crafting Recipe:" {recipe_query}')
+            crafting_results = self._keyword_search(f'"[Crafting Recipe:" {recipe_query}', limit=keyword_limit)
             if crafting_results:
                 # Get the top candidate that isn't already included
                 new_recipes = [r for r in crafting_results if r["chunk_id"] not in existing_ids]
@@ -322,4 +374,4 @@ class HybridSearch:
                         merged.append(hydrated[0])
                         logger.info(f"Auto-injected crafting recipe: {hydrated[0].page_title}")
 
-        return merged
+        return merged[: self.top_k]
