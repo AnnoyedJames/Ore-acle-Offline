@@ -37,6 +37,8 @@ export interface LLMSettings {
   max_tokens: number;
   search_mode: 'semantic' | 'keyword' | 'hybrid';
   thinking: boolean;
+  reranker_key?: string;
+  rerank_candidates?: number;
 }
 
 export const DEFAULT_LLM_SETTINGS: LLMSettings = {
@@ -46,4 +48,6 @@ export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   max_tokens: 1024,
   search_mode: 'hybrid',
   thinking: true,
+  reranker_key: 'qwen3-reranker-0.6b',
+  rerank_candidates: 30,
 };

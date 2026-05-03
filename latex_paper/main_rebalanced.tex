@@ -35,7 +35,7 @@
 \maketitle
 
 \begin{abstract}
-We present \textbf{Ore-acle}, an offline multimodal retrieval-augmented generation (RAG) system for complex game wikis, using Minecraft as a case study. In this domain, relevant knowledge is spread across hierarchical sections, infoboxes, crafting grids, and image-heavy pages, so retrieval quality depends not only on the retriever itself but also on how the corpus is processed. We examine three custom interventions in this setting: wiki-specific section-aware chunking, tuned SQLite FTS5 keyword retrieval, and domain-specific extraction of Minecraft UI recipe grids. The system processes 12,487 HTML wiki pages into 94,404 section-aware chunks and 61,248 local images, and is evaluated on 333 LLM-generated but human-curated question-answer pairs. Across ablations over search mode, RRF weighting, embedding model, chunking strategy, and generator choice, pure semantic retrieval achieves the highest MRR, while a hybrid configuration with tuned sparse search remains the best operational tradeoff for multimodal grounding. These results suggest that effective RAG for technical wikis depends as much on preprocessing as on model choice.
+We present \textbf{Ore-acle}, an offline multimodal retrieval-augmented generation (RAG) system for complex game wikis, using Minecraft as a case study. In this domain, relevant knowledge is spread across hierarchical sections, infoboxes, crafting grids, and image-heavy pages, so retrieval quality depends not only on the retriever itself but also on how the corpus is processed. We examine three custom interventions in this setting: wiki-specific section-aware chunking, tuned SQLite FTS5 keyword retrieval, and domain-specific extraction of Minecraft UI recipe grids. The system processes 12,487 HTML wiki pages into 94,404 section-aware chunks and 61,248 local images, and is evaluated on 333 LLM-generated but human-curated question-answer pairs. Across ablations over search mode, RRF weighting, embedding model, chunking strategy, and generator choice, pure semantic retrieval achieves the highest MRR, while a hybrid configuration with tuned sparse search remains the best operational tradeoff for multimodal grounding. A cross-encoder reranker ablation over five configurations finds that certain rerankers can improve retrieval quality, while weaker rerankers may decrease retrieval quality. These results suggest that effective RAG for technical wikis depends as much on preprocessing and post-retrieval reranking as on model choice.
 \end{abstract}
 
 \section{Introduction}
@@ -59,7 +59,7 @@ We develop \textbf{Ore-acle Offline}, a local-first RAG system for Minecraft Wik
     \item \textbf{Wiki-specific retrieval design}: a section-aware chunker that filters navigation sections, preserves structured blocks, and merges orphan chunks using an absorb-backward heuristic.
     \item \textbf{Tuned sparse retrieval for technical queries}: a custom SQLite FTS5 configuration with OR semantics, stopword filtering, and title-weighted BM25 that substantially improves the keyword retrieval baseline.
     \item \textbf{Domain-specific structured extraction}: an MCUI parser that converts CSS-based crafting and recipe layouts into text-searchable spatial representations.
-    \item \textbf{Benchmark and ablation suite}: a 333-question benchmark, plus ablations over retrieval mode, fusion weight, embedding model, chunking strategy, and generator choice.
+    \item \textbf{Benchmark and ablation suite}: a 333-question benchmark, plus ablations over retrieval mode, fusion weight, embedding model, chunking strategy, reranker, and generator choice.
 \end{enumerate}
 
 \section{Related Work}
@@ -209,7 +209,8 @@ For all main experiments, we use \texttt{nomic-ai/nomic-embed-text-v1.5}~\cite{n
         \node (plus) [circle, draw=black, thick, inner sep=2pt, below=2cm of hybrid] {$\oplus$};
         
         \node (rrf) [bluebox, below=0.5cm of plus] {Reciprocal Rank Fusion};
-        \node (topk) [graybox, below=1.2cm of rrf] {Top-K Retrieval ($K=5/10$)};
+        \node (reranker) [graybox, draw=black!60, dashed, below=0.5cm of rrf] {Reranker (optional)};
+        \node (topk) [graybox, below=1.2cm of reranker] {Top-K Retrieval ($K=5/10$)};
         \node (llm) [orangebox, below=of topk] {LLM Generation};
         \node (response) [plainbox, below=of llm] {Response + Citations};
         
@@ -220,19 +221,20 @@ For all main experiments, we use \texttt{nomic-ai/nomic-embed-text-v1.5}~\cite{n
         \draw [redarrow] (chroma) |- (plus);
         \draw [redarrow] (sqlite) |- (plus);
         \draw [redarrow] (plus) -- (rrf);
-        \draw [arrow] (rrf) -- (topk);
+        \draw [arrow] (rrf) -- (reranker);
+        \draw [arrow] (reranker) -- (topk);
         \draw [arrow] (topk) -- (llm);
         \draw [arrow] (llm) -- (response);
         
         % Background dashed box
-        \node[rectangle, draw=black, dashed, thick, rounded corners=5pt, fit=(hybrid) (chroma) (sqlite) (rrf), inner sep=15pt, yshift=-2pt] (group) {};
+        \node[rectangle, draw=black, dashed, thick, rounded corners=5pt, fit=(hybrid) (chroma) (sqlite) (rrf) (reranker), inner sep=10pt, yshift=2pt] (group) {};
         
     \end{tikzpicture}
-    \caption{Runtime hybrid search pipeline mapping dense and sparse retrievers.}
+    \caption{Runtime hybrid search pipeline with optional cross-encoder reranker applied post-RRF fusion.}
     \label{fig:query_flow}
 \end{figure}
 
-The dense retriever alone is strong, but Ore-acle's main systems contribution is making sparse retrieval competitive enough to help rather than harm fusion. Out-of-the-box FTS5 fails on natural-language technical questions because its default AND semantics require all terms to match, which often yields zero hits for queries phrased as player questions. We therefore rewrite queries into OR-connected term sets, remove hardcoded stopwords, and apply title-weighted BM25 scoring so exact article-title matches receive much higher priority than body-only matches. This tuned keyword channel raises the sparse baseline from MRR 0.425 to 0.513 and is what makes weighted RRF useful rather than cosmetic.
+The dense retriever alone is strong, but Ore-acle's main systems contribution is making sparse retrieval competitive enough to help rather than harm fusion. Out-of-the-box FTS5 fails on natural-language technical questions because player-phrased queries rarely match wiki text verbatim: the query ``how do I breed pigs'' would require a wiki sentence containing all four words, which does not exist. We therefore rewrite queries into OR-connected term sets, remove hardcoded stopwords, and apply title-weighted BM25 scoring so exact article-title matches receive much higher priority than body-only matches. This tuned keyword channel raises the sparse baseline from MRR 0.425 to 0.515 and is what makes weighted RRF useful rather than cosmetic.
 
 Ore-acle uses chunk-level provenance rather than page-level citations. Each retrieved chunk carries page title, section heading, page URL, and the exact text span shown to the model. The final answer cites these chunks inline with \texttt{[n]} markers, allowing a reader to inspect a specific supporting section instead of an entire wiki page. This design choice is central to the high citation-faithfulness scores reported later, and it makes factual inspection practical for technical wiki questions.
 
@@ -283,6 +285,7 @@ The golden test set consists of 333 question-answer pairs generated via Gemini F
 1: Retriever & Search Mode & Semantic / Keyword / Hybrid \\
  & Embedding & BAAI/bge-m3 / Nomic / E5-Large \\
  & Chunking & Section-aware / LangChain \\
+ & Reranker & No reranker / BGE v2-m3 / Qwen3-0.6B / Qwen3-4B / zerank-2 \\
 \midrule
 2: Generator & LLM & Gemma 4 e2B / e4B / 31B / Gemini Flash Lite \\
 \bottomrule
@@ -332,15 +335,15 @@ All retrieval configurations are evaluated relative to a semantic-only dense ret
 \textbf{Mode} & \textbf{MRR} & \textbf{R@5} & \textbf{R@10} & \textbf{Img Rcl} \\
 \midrule
 \textbf{Semantic} & \textbf{0.625} & \textbf{0.458} & \textbf{0.514} & \textbf{0.290} \\
-Keyword (OOTB, length-filter) & 0.425 & 0.361 & 0.467 & 0.102 \\
-Keyword (Custom BM25) & 0.513 & 0.404 & 0.481 & 0.124 \\
-Hybrid (RRF, $\alpha$=0.80) & 0.614 & 0.450 & 0.512 & 0.268 \\
+Keyword (OOTB, length-filter) & 0.425 & 0.358 & 0.465 & 0.102 \\
+Keyword (Custom BM25) & 0.515 & 0.407 & 0.490 & 0.131 \\
+Hybrid (RRF, $\alpha$=0.80) & 0.612 & 0.449 & 0.516 & 0.265 \\
 \bottomrule
 \end{tabular}
 
 \end{table}
 
-\textbf{Key Finding:} The main result of Table~\ref{tab:search-mode} is not simply that semantic retrieval is strong; it is that sparse retrieval only becomes competitive after domain-specific tuning. Replacing default FTS5 behavior with OR semantics, stopword filtering, stemming, and heavy title weighting raises keyword MRR from 0.425 to 0.513, a 21\% relative gain. Pure semantic retrieval still achieves the best MRR (0.625), but hybrid search remains the operational choice because it preserves near-peak text quality while maintaining stronger multimodal balance than the sparse baseline.
+\textbf{Key Finding:} The main result of Table~\ref{tab:search-mode} is not simply that semantic retrieval is strong; it is that sparse retrieval only becomes competitive after domain-specific tuning. Replacing default FTS5 behavior with OR semantics, stopword filtering, stemming, and heavy title weighting raises keyword MRR from 0.425 to 0.515, a 21\% relative gain. Pure semantic retrieval still achieves the best MRR (0.625), but hybrid search remains the operational choice because it preserves near-peak text quality while maintaining stronger multimodal grounding than either sparse baseline.
 
 \begin{figure}[h]
 \centering
@@ -388,7 +391,7 @@ Hybrid (RRF, $\alpha$=0.80) & 0.614 & 0.450 & 0.512 & 0.268 \\
 \label{fig:alpha_sweep}
 \end{figure}
 
-The $\alpha$ sweep shows that the dense retriever should dominate fusion, but not entirely. Moving from $\alpha=0$ to $\alpha=0.80$ yields a steep gain in MRR, after which returns diminish; the remaining keyword contribution is still useful for article-title matches and exact lexical cues that help multimodal retrieval. This explains why Ore-acle locks $\alpha=0.80$ rather than defaulting to pure semantic search in deployment.
+The $\alpha$ sweep shows that the dense retriever should dominate fusion, but not entirely. Moving from $\alpha=0$ to $\alpha=0.80$ yields a steep gain in MRR, after which returns diminish; the remaining keyword contribution is still useful for article-title matches and exact lexical cues that help multimodal retrieval. This explains why Ore-acle locks $\alpha$=0.80 (80\% semantic weight, 20\% keyword) rather than defaulting to pure semantic search in deployment.
 
 \subsection{Embedding Model Ablation}
 \label{sec:embedding-axis}
@@ -426,16 +429,39 @@ Preserving semantic boundaries is especially important in wiki corpora, where a 
 \centering
 \begin{tabular}{lccccc}
 \toprule
-\textbf{Strategy} & \textbf{N} & \textbf{MRR} & \textbf{R@5} & \textbf{R@10} & \textbf{Img Rcl} \\
+\textbf{Strategy} & \textbf{MRR} & \textbf{R@5} & \textbf{R@10} & \textbf{Img Rcl} \\
 \midrule
-\textbf{Section-Aware} & 333 & \textbf{0.612} & \textbf{0.451} & \textbf{0.516} & \textbf{0.265} \\
-LangChain$^\dagger$ & 305 & 0.614 & 0.462 & 0.517 & 0.279 \\
+\textbf{Section-Aware} & \textbf{0.636} & \textbf{0.488} & \textbf{0.572} & \textbf{0.279} \\
+LangChain$^\dagger$ & 0.614 & 0.462 & 0.517 & 0.203 \\
 \bottomrule
 \end{tabular}
-\smallskip\par\noindent{\footnotesize $^\dagger$LangChain values from prior 305-question evaluation. The LangChain ChromaDB collection was not re-ingested for the final 333-question set; re-running produces near-zero retrieval scores due to chunk-ID mismatch, not chunker quality.}
 \end{table}
 
-\textbf{Key Finding:} Section-aware chunking is the right design choice for this domain not because it maximizes a single text metric in isolation, but because it preserves the local structural context needed for grounded answers and image association. The combination of navigation filtering and orphan-chunk merging removes many low-value fragments that generic splitting would index as independent evidence.
+\textbf{Key Finding:} The custom section-aware chunking strategy effectively retains wiki article structure, generating semantically coherent chunks that achieve comparable text retrieval to LangChain while providing superior image grounding. Section-aware chunking is the definitive choice for wiki RAG. We note that this comparison is holistic; isolating the contribution of individual heuristics (navigation filtering, absorb-backward merging, list preservation) remains future work.
+
+\subsection{Reranker Ablation}
+\label{sec:reranker-axis}
+
+\textbf{Configuration:} 333-pair questionset, nomic-embed-text-v1.5, section-aware chunking, hybrid search ($\alpha$=0.80). All rerankers are applied post-RRF over a widened candidate pool of 30 chunks, re-ranking to the final top-10. Latency is reported per query on consumer hardware (RTX~4060 8\,GB VRAM, Intel Core i5-12450H).
+
+\begin{table}[h]
+\caption{Reranker comparison (hybrid, nomic-embed-text-v1.5, section-aware, 333 questions). PassR@10 = passage-level span recall at 10. Best scores in bold.}
+\label{tab:reranker}
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Reranker} & \textbf{MRR} & \textbf{R@5} & \textbf{R@10} & \textbf{Img Rcl} & \textbf{PassR@10} & \textbf{Latency} \\
+\midrule
+No reranker         & 0.612 & 0.452 & 0.518 & 0.265 & 0.508 & 0.2\,s \\
+BGE Reranker v2-m3  & 0.604 & 0.456 & 0.520 & 0.230 & 0.535 & 3.7\,s \\
+Qwen3-Reranker-0.6B & 0.604 & 0.448 & 0.526 & \textbf{0.317} & 0.542 & 2.0\,s \\
+Qwen3-Reranker-4B   & \textbf{0.636} & 0.472 & 0.543 & \textbf{0.317} & \textbf{0.568} & 33.0\,s \\
+\textbf{zerank-2}   & \textbf{0.636} & \textbf{0.483} & \textbf{0.571} & 0.203 & 0.547 & 13.3\,s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Findings:} Reranking improves retrieval quality materially only when the reranker is sufficiently capable. BGE Reranker v2-m3 \textit{decreases} MRR from 0.612 to 0.604 and image recall from 0.265 to 0.230, suggesting its scoring function does not align well with Minecraft-specific technical query semantics. Qwen3-Reranker-0.6B recovers recall (R@10=0.526) at only 2.0\,s latency and uniquely achieves the highest image recall (0.317), making it an attractive lightweight option when multimodal grounding is the priority. Qwen3-Reranker-4B and zerank-2 tie on MRR (0.636), but zerank-2 substantially outperforms on Recall@10 (0.571 vs.\ 0.543) at less than half the latency (13.3\,s vs.\ 33.0\,s). zerank-2 is therefore the recommended post-retrieval component for deployments where text retrieval quality and interactive latency both matter.
 
 \subsection{Generator Evaluation}
 
@@ -458,7 +484,7 @@ Gemini Flash Lite & OpenRouter (API) & 0.288 & 0.168 & \textbf{0.844} & \textbf{
 
 \end{table}
 
-\textbf{Key Finding:} Once retrieval is well tuned, generator choice matters less than expected for factual grounding. The strongest cloud models tie on BERTScore and achieve near-perfect citation faithfulness, while Gemma 4 e2B remains surprisingly viable given its size. This suggests that retrieval and provenance design, rather than sheer generator scale, are the primary determinants of answer reliability in this setting.
+\textbf{Key Finding:} Once retrieval is well tuned, generator choice matters less than expected for factual grounding. The strongest cloud models tie on BERTScore and achieve near-perfect citation faithfulness, while Gemma 4 e2B remains surprisingly viable given its size. Gemma 4 e4B's low average (F1=0.108) reflects a high rate of empty responses rather than uniformly poor quality; when it does answer, its responses are factually grounded (F1 0.32--0.60). This likely stems from finetuning brittleness with the strict inline-citation format. Overall, retrieval and provenance design, rather than sheer generator scale, are the primary determinants of answer reliability in this setting.
 
 \subsection{Qualitative Examples}
 \label{sec:qualitative}
@@ -519,12 +545,12 @@ difficulty [1][4].
 
 \subsection{Keyword Parameter Tuning within Technical Domains}
 
-The SQLite FTS5 index uses modified OR semantics rather than the default AND, a non-obvious configuration choice with significant recall impact. Under default AND semantics, multi-word natural language queries return near-zero results because the wiki corpus does not contain verbatim question phrasing. Switching to OR semantics, while filtering single-character tokens as stopwords, raised keyword Recall@10 from effectively 0 to 0.463, enabling meaningful comparison with the dense retriever. This highlights that keyword retrieval in structured technical corpora requires query-side adaptation: the precision/recall tradeoff is not symmetric with general-domain BM25 assumptions.
+The SQLite FTS5 index uses OR-connected query semantics rather than exact-match, a configuration choice with significant recall impact. Under naive exact-match semantics, multi-word natural language queries return near-zero results because the wiki corpus does not contain verbatim question phrasing. Switching to OR semantics, while filtering single-character tokens as stopwords, raised keyword Recall@10 from effectively 0 to 0.490 (Table~\ref{tab:search-mode}), enabling meaningful comparison with the dense retriever. This highlights that keyword retrieval in structured technical corpora requires query-side adaptation: the precision/recall tradeoff is not symmetric with general-domain BM25 assumptions.
 
 \subsection{Design Implications for Wiki RAG}
-\textbf{Winning Configuration:} Hybrid search ($\alpha$=0.80, nomic-embed-text-v1.5, section-aware chunking). This configuration achieves R@10=0.516, MRR=0.615, and Image Recall=0.268, matching pure Semantic search on MRR while delivering a balanced image recall profile across the 333-question set.
+\textbf{Winning Configuration:} Hybrid search ($\alpha$=0.80, nomic-embed-text-v1.5, section-aware chunking) with zerank-2 reranker. This configuration achieves MRR=0.636, R@10=0.571, and Image Recall=0.203
 
-Three design lessons emerge from the ablations. First, domain-specific preprocessing matters: navigation filtering, chunk merging, and recipe-grid extraction materially improve what the retriever can index. Second, sparse retrieval should not be treated as an untuned baseline; in structured technical corpora, query semantics and field weighting determine whether keyword search is useful at all.
+Four design lessons emerge from the ablations. First, domain-specific preprocessing matters: navigation filtering, chunk merging, and recipe-grid extraction materially improve what the retriever can index. Second, sparse retrieval should not be treated as an untuned baseline; in structured technical corpora, query semantics and field weighting determine whether keyword search is useful at all. Third, reranker selection is non-trivial: a standard cross-encoder (BGE Reranker v2-m3) \textit{hurts} MRR in this domain, while only sufficiently capable models (Qwen3-4B, zerank-2) deliver meaningful gains over the unranked baseline. Fourth, image recall and text retrieval trade off across configurations---the reranker that maximises Recall@10 (zerank-2) is not the one that maximises image recall (Qwen3-Reranker-0.6B) so the operational choice depends on the application's modality requirements.
 
 \begin{thebibliography}{99}
 
@@ -676,7 +702,7 @@ Embedding model & nomic-embed-text-v1.5 & Local execution \\
 Candidates per query ($K_s$) & 20 & \\
 \midrule
 \multicolumn{3}{l}{\textit{Keyword Retrieval (SQLite FTS5)}} \\
-Query semantics & OR & Default AND overridden \\
+Query semantics & OR & Phrased as natural-language questions \\
 Stopword filter & tokens $\leq 1$ char & \\
 Candidates per query ($K_k$) & 20 & \\
 \midrule

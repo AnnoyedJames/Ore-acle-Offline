@@ -14,6 +14,14 @@ const SEARCH_MODES: { key: LLMSettings['search_mode']; label: string }[] = [
   { key: 'hybrid',   label: 'Hybrid'   },
 ];
 
+const RERANKERS: { key: string; label: string }[] = [
+  { key: '',                       label: 'None' },
+  { key: 'bge-reranker-v2-m3',    label: 'BGE Reranker v2-m3' },
+  { key: 'qwen3-reranker-0.6b',   label: 'Qwen3-Reranker-0.6B' },
+  { key: 'qwen3-reranker-4b',     label: 'Qwen3-Reranker-4B' },
+  { key: 'zerank-2',              label: 'ZeroEntropy zerank-2' },
+];
+
 interface SliderRowProps {
   label: string;
   value: number;
@@ -121,6 +129,36 @@ export default function LLMSettingsPanel({ settings, onChange }: LLMSettingsPane
           </p>
         )}
       </div>
+
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Reranker</label>
+        <select
+          value={settings.reranker_key ?? ''}
+          onChange={e => set('reranker_key', e.target.value || undefined)}
+          className="w-full px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-black/50 text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-diamond-blue"
+        >
+          {RERANKERS.map(r => (
+            <option key={r.key} value={r.key}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+        {settings.reranker_key && (
+          <p className="text-[10px] text-gray-500 dark:text-gray-400">
+            Second-stage cross-encoder reranking after RRF fusion
+          </p>
+        )}
+      </div>
+
+      {settings.reranker_key && (
+        <SliderRow
+          label="Rerank Candidates"
+          value={settings.rerank_candidates ?? 30}
+          min={10} max={50} step={5}
+          display={(settings.rerank_candidates ?? 30).toString()}
+          onChange={v => set('rerank_candidates', v)}
+        />
+      )}
 
       <div className="border-t border-gray-300 dark:border-gray-700" />
 

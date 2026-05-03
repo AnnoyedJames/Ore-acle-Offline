@@ -177,15 +177,30 @@ class HybridSearch:
         if ids_needing_text:
             sqlite_rows = self.sqlite.get_by_ids(ids_needing_text)
 
+        # Enrich keyword-only chunks with image metadata from ChromaDB.
+        # SQLite FTS5 stores only text fields; images, infoboxes etc. live in
+        # ChromaDB metadata.  Without this step, pure keyword search returns
+        # zero image recall.
+        ids_needing_meta = [
+            cid for cid in top_ids
+            if cid not in sem_by_id
+            and cid not in chunks_lookup
+        ]
+        chroma_meta: dict[str, dict] = {}
+        if ids_needing_meta:
+            chroma_meta = self.chroma.get_by_ids(ids_needing_meta)
+
         results = []
         for cid in top_ids:
             # Prefer semantic result metadata (has full fields except text),
-            # fall back to keyword result, then chunks_lookup, then SQLite
+            # fall back to keyword result, then chunks_lookup, then chroma_meta
             c: dict = {}
             if cid in sem_by_id:
                 c = sem_by_id[cid]
             elif cid in chunks_lookup:
                 c = chunks_lookup[cid]
+            elif cid in chroma_meta:
+                c = chroma_meta[cid]
             elif cid in kw_by_id:
                 c = kw_by_id[cid]
 
@@ -245,12 +260,17 @@ class HybridSearch:
             f"Passage: {result.text}"
         )
 
-    def _rerank_results(self, query: str, candidates: list[SearchResult]) -> list[SearchResult]:
-        if not self.reranker or not candidates:
+    def _rerank_results(
+        self, query: str, candidates: list[SearchResult], reranker_key: Optional[str] = None
+    ) -> list[SearchResult]:
+        # Resolve reranker: per-query override takes precedence
+        _active_key = reranker_key if reranker_key is not None else self.reranker_key
+        _reranker = get_reranker(_active_key) if _active_key else None
+        if not _reranker or not candidates:
             return candidates[: self.top_k]
 
         docs = [self._format_rerank_document(result) for result in candidates]
-        ranked = self.reranker.rerank(query, docs, top_n=min(self.top_k, len(docs)))
+        ranked = _reranker.rerank(query, docs, top_n=min(self.top_k, len(docs)))
 
         reranked: list[SearchResult] = []
         for item in ranked:
@@ -266,6 +286,8 @@ class HybridSearch:
         filter_types: Optional[list[str]] = None,
         chunks_lookup: Optional[dict[str, dict]] = None,
         query_vec: Optional["np.ndarray"] = None,
+        reranker_key: Optional[str] = None,
+        rerank_candidates: Optional[int] = None,
     ) -> list[SearchResult]:
         """
         Perform local hybrid search: ChromaDB (semantic) + SQLite FTS5 (keyword).
@@ -286,6 +308,10 @@ class HybridSearch:
         query_vec : np.ndarray | None
             Pre-computed query embedding. If supplied, skips the embed_query
             API call. Passed through to _semantic_search.
+        reranker_key : str | None
+            Override the instance-level reranker key for this query.
+        rerank_candidates : int | None
+            Override the instance-level rerank candidate pool size.
 
         Returns
         -------
@@ -295,9 +321,14 @@ class HybridSearch:
         _alpha_override: Optional[float] = None
         semantic_limit = self.semantic_candidates
         keyword_limit = self.keyword_candidates
-        if self.reranker_key:
-            semantic_limit = max(self.semantic_candidates, self.rerank_candidates)
-            keyword_limit = max(self.keyword_candidates, self.rerank_candidates)
+
+        # Resolve reranker: per-query override takes precedence over instance default
+        _active_reranker_key = reranker_key if reranker_key is not None else self.reranker_key
+        _active_rerank_candidates = rerank_candidates if rerank_candidates is not None else self.rerank_candidates
+
+        if _active_reranker_key:
+            semantic_limit = max(self.semantic_candidates, _active_rerank_candidates)
+            keyword_limit = max(self.keyword_candidates, _active_rerank_candidates)
 
         if mode == "semantic":
             semantic_results = self._semantic_search(query, filter_types, query_vec=query_vec, limit=semantic_limit)
@@ -337,14 +368,14 @@ class HybridSearch:
             keyword_results,
             chunks_lookup or {},
             alpha_override=_alpha_override if mode == "hybrid" else None,
-            candidate_limit=self.rerank_candidates if self.reranker_key else None,
+            candidate_limit=_active_rerank_candidates if _active_reranker_key else None,
         )
 
         # Post-filter keyword-only results by page_type if filter requested
         if filter_types and mode in ("keyword", "hybrid"):
             merged = [r for r in merged if r.page_type in filter_types]
 
-        merged = self._rerank_results(query, merged)
+        merged = self._rerank_results(query, merged, reranker_key=_active_reranker_key)
 
         logger.info(f"RRF merged \u2192 {len(merged)} results")
         for i, r in enumerate(merged[:3]):

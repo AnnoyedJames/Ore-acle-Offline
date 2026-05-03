@@ -71,6 +71,8 @@ export default function ChatInterface({ messages, setMessages, initialPrompt }: 
           max_tokens: settings.max_tokens,
           search_mode: settings.search_mode,
           thinking: settings.thinking,
+          reranker_key: settings.reranker_key || null,
+          rerank_candidates: settings.rerank_candidates ?? null,
         }),
       });
 

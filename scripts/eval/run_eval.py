@@ -76,7 +76,7 @@ EMBEDDING_AXIS_MODELS = list(EMBEDDING_MODELS.keys())
 SEARCH_AXIS_MODES = ["semantic", "keyword_ootb", "keyword", "hybrid"]
 RRF_ALPHA_SWEEP = [0.5, 0.6, 0.7, 0.8, 0.9]
 CHUNKING_AXIS_STRATEGIES = ["section_aware", "langchain"]
-RERANKER_AXIS_MODELS = [None, "bge-reranker-v2-m3", "qwen3-reranker-4b", "zerank-2"]
+RERANKER_AXIS_MODELS = [None, "bge-reranker-v2-m3", "qwen3-reranker-0.6b", "qwen3-reranker-4b", "zerank-2"]
 
 # Per-chunking-strategy metadata: (chunks_file, sqlite_db_path)
 CHUNKING_META: dict[str, dict] = {
@@ -623,22 +623,24 @@ def run_retriever_axis(
     axis: str,
     questions: list[dict],
     chunks_lookup: dict[str, dict],
+    reranker: str | None = None,
 ) -> dict:
     """Run one retriever axis, return aggregated metrics + per-question log."""
+    _rnk_suffix = f"|{reranker}" if reranker else ""
 
     if axis == "embedding":
         configs = [
-            {"embedding": m, "search": DEFAULT_SEARCH_MODE, "chunking": DEFAULT_CHUNKING}
+            {"embedding": m, "search": DEFAULT_SEARCH_MODE, "chunking": DEFAULT_CHUNKING, "reranker": reranker}
             for m in EMBEDDING_AXIS_MODELS
         ]
     elif axis == "search":
         configs = [
-            {"embedding": DEFAULT_EMBEDDING_MODEL, "search": m, "chunking": DEFAULT_CHUNKING}
+            {"embedding": DEFAULT_EMBEDDING_MODEL, "search": m, "chunking": DEFAULT_CHUNKING, "reranker": reranker}
             for m in SEARCH_AXIS_MODES
         ]
     elif axis == "chunking":
         configs = [
-            {"embedding": DEFAULT_EMBEDDING_MODEL, "search": DEFAULT_SEARCH_MODE, "chunking": m}
+            {"embedding": DEFAULT_EMBEDDING_MODEL, "search": DEFAULT_SEARCH_MODE, "chunking": m, "reranker": reranker}
             for m in CHUNKING_AXIS_STRATEGIES
         ]
     elif axis == "rrf":
@@ -646,14 +648,17 @@ def run_retriever_axis(
         configs = [
             {"embedding": DEFAULT_EMBEDDING_MODEL, "search": "semantic",
              "chunking": DEFAULT_CHUNKING, "rrf_alpha": None, "rrf_k": None,
-             "label": f"{DEFAULT_EMBEDDING_MODEL}|semantic|{DEFAULT_CHUNKING}"},
+             "reranker": reranker,
+             "label": f"{DEFAULT_EMBEDDING_MODEL}|semantic|{DEFAULT_CHUNKING}{_rnk_suffix}"},
             {"embedding": DEFAULT_EMBEDDING_MODEL, "search": "keyword",
              "chunking": DEFAULT_CHUNKING, "rrf_alpha": None, "rrf_k": None,
-             "label": f"{DEFAULT_EMBEDDING_MODEL}|keyword|{DEFAULT_CHUNKING}"},
+             "reranker": reranker,
+             "label": f"{DEFAULT_EMBEDDING_MODEL}|keyword|{DEFAULT_CHUNKING}{_rnk_suffix}"},
         ] + [
             {"embedding": DEFAULT_EMBEDDING_MODEL, "search": "hybrid",
              "chunking": DEFAULT_CHUNKING, "rrf_alpha": a, "rrf_k": 20,
-             "label": f"hybrid|α={a:.2f}|k=20"}
+             "reranker": reranker,
+             "label": f"hybrid|α={a:.2f}|k=20{_rnk_suffix}"}
             for a in RRF_ALPHA_SWEEP
         ]
     elif axis == "reranker":
@@ -681,9 +686,6 @@ def run_retriever_axis(
 
     all_results: dict[str, list[dict]] = {}
 
-    # Cache of per-chunking loaded lookups to avoid redundant re-loads
-    _lookup_cache: dict[str, dict] = {}
-
     # Per-model disk-backed query embedding cache.
     # Key: model_id  Value: {question_text: np.ndarray | None}
     # Populated once per model, persisted to data/eval/ so subsequent
@@ -691,7 +693,9 @@ def run_retriever_axis(
     _embed_cache: dict[str, dict[str, Any]] = {}
 
     for cfg in configs:
-        label = cfg.get("label", f"{cfg['embedding']}|{cfg['search']}|{cfg['chunking']}")
+        _rnk = cfg.get("reranker")
+        _rnk_part = f"|{_rnk}" if _rnk else ""
+        label = cfg.get("label", f"{cfg['embedding']}|{cfg['search']}|{cfg['chunking']}{_rnk_part}")
         logger.info(f"\n{'='*60}\nConfig: {label}\n{'='*60}")
 
         search_engine = _build_search(
@@ -703,12 +707,9 @@ def run_retriever_axis(
             reranker=cfg.get("reranker"),
         )
 
-        # Use the right chunks_lookup for this chunking strategy
-        ck = cfg["chunking"]
-        if ck not in _lookup_cache:
-            meta = CHUNKING_META.get(ck, CHUNKING_META["section_aware"])
-            _lookup_cache[ck] = _load_chunks_lookup(meta["chunks_file"])
-        active_lookup = _lookup_cache[ck]
+        # HybridSearch now hydrates chunk text on demand from Chroma/SQLite,
+        # so retriever evals do not need to preload the full chunks lookup.
+        active_lookup: dict[str, dict] = {}
 
         # Resolve per-model query embedding cache (disk-backed).
         # Keyword-only configs need no embeddings.
@@ -817,7 +818,7 @@ def run_retriever_axis(
             f"FPR@3={agg['fpr@3']:.3f}  PassR@10={pr10_str}"
         )
 
-    return {"axis": axis, "summary": summary_rows, "per_question": all_results}
+    return {"axis": axis, "reranker": reranker, "summary": summary_rows, "per_question": all_results}
 
 
 # ===================================================================
@@ -1022,6 +1023,7 @@ def run_generator(
 def _write_retriever_report(data: dict, out_dir: Path, ts: str) -> None:
     """Write Markdown summary for a retriever axis run."""
     axis = data["axis"]
+    reranker = data.get("reranker")
     rows = data["summary"]
 
     lines = [
@@ -1042,7 +1044,8 @@ def _write_retriever_report(data: dict, out_dir: Path, ts: str) -> None:
             f"{r['image_recall']:.3f} | {pr10_str} | {fpr:.3f} | {r['avg_latency']:.3f}s |"
         )
 
-    md_path = out_dir / f"retriever_{axis}_{ts}.md"
+    rnk_tag = f"_{reranker.replace('/', '-')}" if reranker else ""
+    md_path = out_dir / f"retriever_{axis}{rnk_tag}_{ts}.md"
     md_path.write_text("\n".join(lines), encoding="utf-8")
     logger.info(f"Report: {md_path}")
 
@@ -1147,7 +1150,7 @@ def main():
     chunks_lookup: dict = {}
 
     if args.phase == "retriever":
-        data = run_retriever_axis(args.axis, questions, chunks_lookup)
+        data = run_retriever_axis(args.axis, questions, chunks_lookup, reranker=args.reranker)
 
         # Save JSON
         json_path = RESULTS_DIR / f"retriever_{args.axis}_{ts}.json"

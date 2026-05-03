@@ -78,6 +78,8 @@ class ChatRequest(BaseModel):
     max_tokens: int = 1024
     search_mode: str = "hybrid"
     thinking: bool = False
+    reranker_key: Optional[str] = None
+    rerank_candidates: Optional[int] = None
 
 class Citation(BaseModel):
     id: int
@@ -105,10 +107,15 @@ def health_check():
 @app.post("/chat", response_model=ChatResponse)
 @limiter.limit("20/minute")
 async def chat(request: Request, body: ChatRequest):
-    logger.info(f"Received request: {body.message[:80]!r} (model: {body.model}, search: {body.search_mode})")
+    logger.info(f"Received request: {body.message[:80]!r} (model: {body.model}, search: {body.search_mode}, reranker: {body.reranker_key})")
     try:
         # 1. Search DB based on search_mode
-        search_results = search_engine.search(body.message, mode=body.search_mode)
+        search_results = search_engine.search(
+            body.message,
+            mode=body.search_mode,
+            reranker_key=body.reranker_key,
+            rerank_candidates=body.rerank_candidates,
+        )
             
         logger.info(f"Retrieved {len(search_results)} search results.")
 
@@ -166,7 +173,12 @@ async def chat_stream(request: Request, body: ChatRequest):
     logger.info(f"[stream] {body.message[:80]!r} (model: {body.model})")
 
     # 1. Search (runs synchronously, same as /chat)
-    search_results = search_engine.search(body.message, mode=body.search_mode)
+    search_results = search_engine.search(
+        body.message,
+        mode=body.search_mode,
+        reranker_key=body.reranker_key,
+        rerank_candidates=body.rerank_candidates,
+    )
     logger.info(f"[stream] {len(search_results)} search results")
 
     # 2. Build generator

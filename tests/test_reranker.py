@@ -115,6 +115,22 @@ class TestGetReranker:
         assert isinstance(reranker, LocalCrossEncoderReranker)
         assert reranker.model_id == "BAAI/bge-reranker-v2-m3"
 
+    def test_qwen_key_returns_qwen_reranker(self):
+        from backend.retrieval.reranker import LocalQwenReranker, get_reranker, _RERANKER_CACHE
+
+        _RERANKER_CACHE.pop("qwen3-reranker-4b", None)
+        reranker = get_reranker("qwen3-reranker-4b")
+        assert isinstance(reranker, LocalQwenReranker)
+        assert reranker.model_id == "Qwen/Qwen3-Reranker-4B"
+
+    def test_zerank_key_returns_qwen_reranker(self):
+        from backend.retrieval.reranker import LocalQwenReranker, get_reranker, _RERANKER_CACHE
+
+        _RERANKER_CACHE.pop("zerank-2", None)
+        reranker = get_reranker("zerank-2")
+        assert isinstance(reranker, LocalQwenReranker)
+        assert reranker.model_id == "zeroentropy/zerank-2"
+
     def test_factory_caches_instance(self):
         from backend.retrieval.reranker import get_reranker, _RERANKER_CACHE
 
@@ -182,26 +198,68 @@ class TestLocalCrossEncoderReranker:
         pairs = call_args[0][0]
         assert pairs == [("my query", "doc A"), ("my query", "doc B")]
 
-    def test_qwen_kwargs_set_trust_remote_code(self):
-        from backend.retrieval.reranker import LocalCrossEncoderReranker
 
-        reranker = LocalCrossEncoderReranker("Qwen/Qwen3-Reranker-4B")
-        with patch("sentence_transformers.CrossEncoder") as mock_ce:
-            mock_ce.return_value = MagicMock()
-            _ = reranker.model  # trigger lazy load
-            _, kwargs = mock_ce.call_args
-            assert kwargs.get("automodel_args", {}).get("trust_remote_code") is True
-            assert kwargs.get("tokenizer_args", {}).get("trust_remote_code") is True
 
-    def test_zerank_kwargs_set_trust_remote_code(self):
-        from backend.retrieval.reranker import LocalCrossEncoderReranker
+class TestLocalQwenReranker:
+    def test_format_instruction_contains_query_and_document(self):
+        from backend.retrieval.reranker import LocalQwenReranker
 
-        reranker = LocalCrossEncoderReranker("zeroentropy/zerank-2")
-        with patch("sentence_transformers.CrossEncoder") as mock_ce:
-            mock_ce.return_value = MagicMock()
+        reranker = LocalQwenReranker("Qwen/Qwen3-Reranker-4B")
+        text = reranker._format_instruction("find diamonds", "Diamonds are found underground")
+        assert "find diamonds" in text
+        assert "Diamonds are found underground" in text
+        assert "<Instruct>:" in text
+
+    def test_empty_documents_returns_empty(self):
+        from backend.retrieval.reranker import LocalQwenReranker
+
+        reranker = LocalQwenReranker("Qwen/Qwen3-Reranker-4B")
+        assert reranker.rerank("query", []) == []
+
+    def test_rerank_sorts_descending_scores(self):
+        from backend.retrieval.reranker import LocalQwenReranker
+
+        reranker = LocalQwenReranker("Qwen/Qwen3-Reranker-4B", batch_size=2)
+        reranker._score_batch = MagicMock(side_effect=[[0.2, 0.9], [0.4]])
+        results = reranker.rerank("query", ["doc0", "doc1", "doc2"])
+        assert [result.index for result in results] == [1, 2, 0]
+        assert results[0].score == pytest.approx(0.9)
+
+    def test_top_n_truncates(self):
+        from backend.retrieval.reranker import LocalQwenReranker
+
+        reranker = LocalQwenReranker("zeroentropy/zerank-2", batch_size=2)
+        reranker._score_batch = MagicMock(side_effect=[[0.3, 0.8], [0.2]])
+        results = reranker.rerank("query", ["doc0", "doc1", "doc2"], top_n=2)
+        assert len(results) == 2
+        assert [result.index for result in results] == [1, 0]
+
+    def test_tokenizer_loads_with_trust_remote_code(self):
+        from backend.retrieval.reranker import LocalQwenReranker
+
+        reranker = LocalQwenReranker("Qwen/Qwen3-Reranker-4B")
+        tokenizer = MagicMock()
+        tokenizer.pad_token = None
+        tokenizer.eos_token = "<eos>"
+        with patch("transformers.AutoTokenizer.from_pretrained", return_value=tokenizer) as mock_tok:
+            _ = reranker.tokenizer
+            _, kwargs = mock_tok.call_args
+            assert kwargs.get("trust_remote_code") is True
+            assert kwargs.get("local_files_only") is True
+            assert tokenizer.pad_token == tokenizer.eos_token
+
+    def test_model_loads_with_causal_lm(self):
+        from backend.retrieval.reranker import LocalQwenReranker
+
+        reranker = LocalQwenReranker("zeroentropy/zerank-2")
+        model = MagicMock()
+        model.eval.return_value = model
+        with patch("transformers.AutoModelForCausalLM.from_pretrained", return_value=model) as mock_model:
             _ = reranker.model
-            _, kwargs = mock_ce.call_args
-            assert kwargs.get("automodel_args", {}).get("trust_remote_code") is True
+            _, kwargs = mock_model.call_args
+            assert kwargs.get("trust_remote_code") is True
+            assert kwargs.get("local_files_only") is True
+            assert kwargs.get("device_map") == "auto"
 
 
 # ---------------------------------------------------------------------------

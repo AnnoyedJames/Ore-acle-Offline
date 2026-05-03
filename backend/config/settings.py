@@ -10,6 +10,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 from pydantic import Field
 
 # Ensure HuggingFace tools run fully offline, assuming cached models
@@ -37,11 +38,6 @@ class EmbeddingModelInfo:
 
 
 EMBEDDING_MODELS: dict[str, EmbeddingModelInfo] = {
-    "BAAI/bge-m3": EmbeddingModelInfo(
-        model_id="BAAI/bge-m3",
-        dimension=1024,
-        backend="local",
-    ),
     "nomic-ai/nomic-embed-text-v1.5": EmbeddingModelInfo(
         model_id="nomic-ai/nomic-embed-text-v1.5",
         dimension=768,
@@ -119,6 +115,7 @@ class RerankerModelInfo:
     model_id: str
     backend: str  # "local" (sentence-transformers CrossEncoder) or "zeroentropy"
     label: str
+    quantization: Optional[str] = None  # "4bit", "8bit", or None
 
 
 RERANKER_MODELS: dict[str, RerankerModelInfo] = {
@@ -127,15 +124,23 @@ RERANKER_MODELS: dict[str, RerankerModelInfo] = {
         backend="local",
         label="BGE Reranker v2-m3",
     ),
+    "qwen3-reranker-0.6b": RerankerModelInfo(
+        model_id="Qwen/Qwen3-Reranker-0.6B",
+        backend="local",
+        label="Qwen3-Reranker-0.6B",
+        quantization="4bit",
+    ),
     "qwen3-reranker-4b": RerankerModelInfo(
         model_id="Qwen/Qwen3-Reranker-4B",
         backend="local",
         label="Qwen3-Reranker-4B",
+        quantization="4bit",
     ),
     "zerank-2": RerankerModelInfo(
         model_id="zeroentropy/zerank-2",
         backend="local",
         label="ZeroEntropy zerank-2",
+        quantization="4bit",
     ),
 }
 
@@ -154,7 +159,7 @@ class Settings(BaseSettings):
     )
     embedding_dim: int = Field(default=1024, description="Embedding vector dimensions")
     embedding_batch_size: int = Field(
-        default=128, description="Batch size for embedding generation"
+        default=16, description="Batch size for embedding generation"
     )
     embedding_task_prefix: str = Field(
         default="",

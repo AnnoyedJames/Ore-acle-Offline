@@ -187,6 +187,43 @@ class ChromaStore:
             })
         return out
 
+    def get_by_ids(self, chunk_ids: list[str]) -> dict[str, dict]:
+        """Fetch full metadata for a list of chunk IDs from ChromaDB.
+
+        Used to enrich keyword-only search results with image metadata
+        and other fields not stored in the SQLite FTS5 index.
+
+        Returns a dict mapping chunk_id → metadata dict (with JSON fields
+        deserialised), or empty dict for IDs not found.
+        """
+        if not chunk_ids:
+            return {}
+        try:
+            results = self.collection.get(
+                ids=chunk_ids,
+                include=["metadatas"],
+            )
+        except Exception:
+            logger.warning(
+                f"ChromaDB get_by_ids failed for {len(chunk_ids)} IDs, "
+                f"returning empty"
+            )
+            return {}
+
+        out: dict[str, dict] = {}
+        for cid, meta in zip(results["ids"], results["metadatas"]):
+            if meta is None:
+                continue
+            # Deserialise JSON fields (same as query())
+            for key in ("images", "infobox", "related_pages", "categories"):
+                if key in meta and isinstance(meta[key], str):
+                    try:
+                        meta[key] = json.loads(meta[key])
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+            out[cid] = meta
+        return out
+
     def count(self) -> int:
         return self.collection.count()
 
