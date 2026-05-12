@@ -126,7 +126,7 @@ class AnswerGenerator:
 
             num = i + 1
             source_text = (
-                f"[Source {num}]\n"
+                f"Source #{num}:\n"
                 f"Page: {result.page_title}\n"
                 f"Section: {result.section_heading}\n"
                 f"URL: {result.page_url}\n"
