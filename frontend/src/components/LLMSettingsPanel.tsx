@@ -5,7 +5,8 @@ const MODELS = [
   { key: 'gemma-4-e2b',      label: 'Gemma 4 e2B',           badge: 'Local' },
   { key: 'gemma-4-e4b',      label: 'Gemma 4 e4B',           badge: 'Local' },
   { key: 'gemma-4-31b',      label: 'Gemma 4 31B',           badge: 'API'   },
-  { key: 'gemini-flash-lite', label: 'Gemini 3.1 Flash Lite', badge: 'API'  },
+  { key: 'gemini-flash-lite', label: 'Gemini 3.1 Flash Lite', badge: 'API'   },
+  { key: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash',     badge: 'API'   },
 ];
 
 const SEARCH_MODES: { key: LLMSettings['search_mode']; label: string }[] = [

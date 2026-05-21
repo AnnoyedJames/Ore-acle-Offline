@@ -95,9 +95,15 @@ LLM_MODELS: dict[str, LLMModelInfo] = {
         param_billions=31.0,
     ),
     "gemini-flash-lite": LLMModelInfo(
-        model_id="google/gemini-3.1-flash-lite-preview",
+        model_id="google/gemini-3.1-flash-lite",
         backend="openrouter",
         label="Gemini 3.1 Flash Lite",
+        param_billions=0,  # proprietary, size unknown
+    ),
+    "deepseek-v4-flash": LLMModelInfo(
+        model_id="deepseek/deepseek-v4-flash",
+        backend="openrouter",
+        label="DeepSeek V4 Flash",
         param_billions=0,  # proprietary, size unknown
     ),
 }
