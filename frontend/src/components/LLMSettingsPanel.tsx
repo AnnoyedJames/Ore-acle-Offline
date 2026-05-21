@@ -9,6 +9,8 @@ const MODELS = [
   { key: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash',     badge: 'API'   },
 ];
 
+const THINKING_MODELS = new Set(['gemma-4-e2b', 'gemma-4-e4b', 'deepseek-v4-flash']);
+
 const SEARCH_MODES: { key: LLMSettings['search_mode']; label: string }[] = [
   { key: 'semantic', label: 'Semantic' },
   { key: 'keyword',  label: 'Keyword'  },
@@ -67,6 +69,14 @@ export default function LLMSettingsPanel({ settings, onChange }: LLMSettingsPane
     onChange({ ...settings, [key]: value });
 
   const activeModel = MODELS.find(m => m.key === settings.model);
+  const thinkingSupported = THINKING_MODELS.has(settings.model);
+  const setModel = (model: string) => {
+    onChange({
+      ...settings,
+      model,
+      thinking: THINKING_MODELS.has(model) ? settings.thinking : false,
+    });
+  };
 
   return (
     <div className="w-64 shrink-0 h-full overflow-y-auto border-l border-gray-300 dark:border-gray-700 glass glass-light dark:glass-dark p-4 flex flex-col gap-5">
@@ -88,7 +98,7 @@ export default function LLMSettingsPanel({ settings, onChange }: LLMSettingsPane
         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Model</label>
         <select
           value={settings.model}
-          onChange={e => set('model', e.target.value)}
+          onChange={e => setModel(e.target.value)}
           className="w-full px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-black/50 text-gray-900 dark:text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-diamond-blue"
         >
           {MODELS.map(m => (
@@ -97,14 +107,19 @@ export default function LLMSettingsPanel({ settings, onChange }: LLMSettingsPane
             </option>
           ))}
         </select>
-        {activeModel && (
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+              {thinkingSupported
+                ? 'Show reasoning process'
+                : 'Disabled for this model to avoid slower, truncated answers'}
+            </p>
           <p className="text-[10px] text-gray-500 dark:text-gray-400">
             {activeModel.badge === 'Local'
               ? '🖥 Served by Ollama (local)'
-              : '☁ Served by OpenRouter (API)'}
-          </p>
+            onClick={() => thinkingSupported && set('thinking', !settings.thinking)}
+            disabled={!thinkingSupported}
+            className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${
         )}
-      </div>
+            } ${thinkingSupported ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
 
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Search Mode</label>

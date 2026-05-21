@@ -22,6 +22,10 @@ from openai import OpenAI
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+OPENROUTER_VISIBLE_THINKING_MODELS = {
+    "deepseek/deepseek-v4-flash",
+}
+
 
 SYSTEM_PROMPT = """You are Ore-acle, a knowledgeable and friendly Minecraft encyclopedia assistant.
 
@@ -107,6 +111,11 @@ class AnswerGenerator:
             base_url=self.config.base_url,
         )
         logger.info(f"LLM client initialized (model: {self.config.model}, url: {self.config.base_url})")
+
+    def _supports_visible_thinking(self) -> bool:
+        if "openrouter.ai" in self.config.base_url:
+            return self.config.model in OPENROUTER_VISIBLE_THINKING_MODELS
+        return True
 
     def _build_context(self, search_results: list) -> tuple[str, list[dict], list[dict]]:
         """
@@ -240,13 +249,17 @@ class AnswerGenerator:
 
         # Call LLM (OpenRouter or Ollama)
         logger.info(f"Calling {self.config.model} (thinking={self.config.thinking})...")
+        thinking_enabled = self.config.thinking and self._supports_visible_thinking()
+        logger.info(f"Calling {self.config.model} (thinking={thinking_enabled})...")
         call_kwargs: dict = dict(
             model=self.config.model,
             messages=messages,
             max_tokens=self.config.max_tokens,
             temperature=self.config.temperature,
         )
-        if self.config.thinking:
+        if self.config.thinking and not thinking_enabled:
+            logger.info(f"Thinking disabled for {self.config.model} to avoid hidden reasoning budget consumption.")
+        if thinking_enabled:
             if "openrouter.ai" in self.config.base_url:
                 # OpenRouter unified reasoning API — works for Gemma 4, Gemini 3.x, etc.
                 # Maps to each provider's native thinking mechanism (thinkingLevel for Gemini,
@@ -351,7 +364,10 @@ class AnswerGenerator:
             temperature=self.config.temperature,
             stream=True,
         )
-        if self.config.thinking:
+        thinking_enabled = self.config.thinking and self._supports_visible_thinking()
+        if self.config.thinking and not thinking_enabled:
+            logger.info(f"Thinking disabled for {self.config.model} to avoid hidden reasoning budget consumption.")
+        if thinking_enabled:
             if "openrouter.ai" in self.config.base_url:
                 call_kwargs["extra_body"] = {"reasoning": {"effort": "medium"}}
             else:

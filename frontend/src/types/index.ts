@@ -47,7 +47,7 @@ export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   top_p: 0.95,
   max_tokens: 1024,
   search_mode: 'hybrid',
-  thinking: true,
+  thinking: false,
   reranker_key: 'qwen3-reranker-0.6b',
   rerank_candidates: 30,
 };
