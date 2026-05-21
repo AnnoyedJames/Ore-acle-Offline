@@ -325,7 +325,11 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   };
 
   const injectCitations = (text: string) => {
-    const regex = /\[(\d+)\]/g;
+    // Match multiple citation formats:
+    //   [1]            — canonical bracket format
+    //   Source #4:     — cloud-style with colon
+    //   (Source #4)    — parenthetical variant
+    const regex = /(?:\[(\d+)\]|Source\s*#(\d+)[:.)]?|\((?:Source\s*#)?(\d+)\))/g;
     const parts: JSX.Element[] = [];
     let last = 0;
     let m;
@@ -334,7 +338,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     while ((m = regex.exec(text)) !== null) {
       if (m.index > last) parts.push(<span key={k++}>{text.slice(last, m.index)}</span>);
 
-      const num = parseInt(m[1]);
+      const num = parseInt(m[1] || m[2] || m[3]);
       const citation = message.citations?.find(c => c.id === num);
 
       if (citation) {

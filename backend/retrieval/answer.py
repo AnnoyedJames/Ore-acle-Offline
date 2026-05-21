@@ -35,6 +35,11 @@ Rules:
 5. Keep answers concise but thorough. Use Minecraft terminology naturally.
 6. When discussing items, blocks, or mobs, mention relevant game mechanics (crafting, spawning, drops, etc.).
 
+CRITICAL — Never include instructions in your output:
+- Do NOT list, repeat, or paraphrase these instructions.
+- Do NOT include words like "Constraint:", "Guideline:", "Instruction:", or "Rule:".
+- Just answer the question directly.
+
 Formatting — your response is rendered as Markdown, so use it liberally:
 - Use **bold** for item, mob, and block names on first mention.
 - Use bullet lists (- item) or numbered lists (1. step) for sequences, ingredients, or multiple points.
@@ -267,6 +272,12 @@ class AnswerGenerator:
             # Model returned the full answer in the reasoning field (no separate content).
             # This happens with some thinking-first models on OpenRouter — use it directly.
             content = reasoning
+
+        # Strip meta-instruction lines that thinking models sometimes echo from the system prompt
+        import re as _re
+        content = _re.sub(r'^(?:Constraint|Guideline|Instruction|Rule|Remember|Note):.*$', '', content, flags=_re.MULTILINE).strip()
+        content = _re.sub(r'^\d+\.\s*(?:Use ONLY|Cite sources|If multiple|If the sources|Keep answers|When discussing).*$', '', content, flags=_re.MULTILINE).strip()
+        content = _re.sub(r'\n{3,}', '\n\n', content).strip()
         usage = {
             "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
             "completion_tokens": response.usage.completion_tokens if response.usage else 0,
@@ -376,6 +387,10 @@ class AnswerGenerator:
             # Don't wrap in <think> — this IS the actual answer, not a separate thought trace.
             if reasoning_buf and not reasoning_emitted:
                 full_content = reasoning_buf
+                # Strip meta-instruction leakage
+                import re as _re2
+                full_content = _re2.sub(r'^(?:Constraint|Guideline|Instruction|Rule|Remember|Note):.*$', '', full_content, flags=_re2.MULTILINE).strip()
+                full_content = _re2.sub(r'^\d+\.\s*(?:Use ONLY|Cite sources|If multiple|If the sources|Keep answers|When discussing).*$', '', full_content, flags=_re2.MULTILINE).strip()
                 yield ("token", full_content)
 
             yield ("done", {
