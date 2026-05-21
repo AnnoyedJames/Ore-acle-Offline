@@ -14,6 +14,7 @@ Usage:
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 
@@ -26,6 +27,12 @@ OPENROUTER_VISIBLE_THINKING_MODELS = {
     "deepseek/deepseek-v4-flash",
 }
 
+STOPWORDS = {
+    "the", "and", "for", "with", "that", "this", "from", "have", "into",
+    "your", "you", "about", "what", "where", "when", "which", "minecraft",
+    "using", "used", "they", "them", "than", "then", "just",
+}
+
 
 SYSTEM_PROMPT = """You are Ore-acle, a knowledgeable and friendly Minecraft encyclopedia assistant.
 
@@ -33,7 +40,9 @@ You answer questions about Minecraft using ONLY the provided source chunks. Ever
 
 Rules:
 1. Use ONLY information from the provided sources. Never fabricate facts, even if you parametrically think they are true — you must back claims up with a retrieved source or say you don't know / can't find it in the wiki.
-2. Cite sources inline using [1], [2], etc. immediately after the claim they support.
+2. Cite sources inline using bare [1], [2], etc. immediately after the claim they support.
+    - Never decorate citations with labels or explanations like ([6] Armor materials).
+    - The citation itself must be only the bracketed number, e.g. [6].
 3. If multiple sources support the same fact, cite all of them: [1][3].
 4. If the sources don't contain enough information to answer, say so honestly.
 5. Keep answers concise but thorough. Use Minecraft terminology naturally.
@@ -55,6 +64,59 @@ Formatting — your response is rendered as Markdown, so use it liberally:
 - Images: when a source lists images, embed the most relevant ones inline using standard Markdown `![alt](url)`, placed directly after the text they illustrate. Prefer images that show the subject being discussed (the mob, block, item, or UI element). Do not embed every image — choose the ones that add the most visual clarity. Embed at least one image per answer when images are available.
 
 Remember: accuracy and proper citation are more important than completeness."""
+
+
+def _extract_citation_excerpt(text: str, query: str, page_title: str, section: str) -> dict[str, str]:
+    clean = " ".join(text.split())
+    if not clean:
+        return {"cited_text": "", "lead_text": "", "highlight_text": "", "trail_text": ""}
+
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", clean) if s.strip()]
+    if not sentences:
+        return {
+            "cited_text": clean[:320],
+            "lead_text": "",
+            "highlight_text": clean[:220],
+            "trail_text": "",
+        }
+
+    keyword_pool = " ".join(part for part in [query, page_title, section] if part)
+    keywords = {
+        token.lower()
+        for token in re.findall(r"[A-Za-z0-9']+", keyword_pool)
+        if len(token) > 2 and token.lower() not in STOPWORDS
+    }
+
+    def score(sentence: str) -> tuple[int, int]:
+        lower = sentence.lower()
+        hits = sum(lower.count(keyword) for keyword in keywords)
+        if page_title and page_title.lower() in lower:
+            hits += 2
+        if section and section.lower() in lower:
+            hits += 1
+        return hits, -len(sentence)
+
+    best_index = max(range(len(sentences)), key=lambda idx: score(sentences[idx]))
+    if score(sentences[best_index])[0] == 0:
+        best_index = 0
+
+    lead = sentences[best_index - 1] if best_index > 0 else ""
+    highlight = sentences[best_index]
+    trail = sentences[best_index + 1] if best_index + 1 < len(sentences) else ""
+
+    return {
+        "cited_text": " ".join(part for part in [lead, highlight, trail] if part).strip()[:320],
+        "lead_text": lead[:140],
+        "highlight_text": highlight[:220],
+        "trail_text": trail[:140],
+    }
+
+
+def _normalize_inline_citations(content: str) -> str:
+    content = re.sub(r"\(\s*\[(\d+)\][^)\n]{0,80}\)", r"[\1]", content)
+    content = re.sub(r"\(\s*Source\s*#(\d+)\s*\)", r"[\1]", content, flags=re.IGNORECASE)
+    content = re.sub(r"Source\s*#(\d+):", r"[\1]", content, flags=re.IGNORECASE)
+    return content
 
 
 @dataclass
@@ -117,7 +179,7 @@ class AnswerGenerator:
             return self.config.model in OPENROUTER_VISIBLE_THINKING_MODELS
         return True
 
-    def _build_context(self, search_results: list) -> tuple[str, list[dict], list[dict]]:
+    def _build_context(self, search_results: list, query: str) -> tuple[str, list[dict], list[dict]]:
         """
         Build the source context string and extract citations/images.
 
@@ -168,7 +230,12 @@ class AnswerGenerator:
                 "page_title": result.page_title,
                 "page_url": result.page_url,
                 "section": result.section_heading,
-                "cited_text": result.text[:300],  # Truncate for UI
+                **_extract_citation_excerpt(
+                    result.text,
+                    query=query,
+                    page_title=result.page_title,
+                    section=result.section_heading,
+                ),
             })
 
             # Collect images from this chunk
@@ -214,7 +281,7 @@ class AnswerGenerator:
         """
         self._init_client()
 
-        context, citations, images = self._build_context(search_results)
+        context, citations, images = self._build_context(search_results, query)
 
         # Build message list
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -248,7 +315,6 @@ class AnswerGenerator:
             messages.append({"role": "user", "content": user_message_text})
 
         # Call LLM (OpenRouter or Ollama)
-        logger.info(f"Calling {self.config.model} (thinking={self.config.thinking})...")
         thinking_enabled = self.config.thinking and self._supports_visible_thinking()
         logger.info(f"Calling {self.config.model} (thinking={thinking_enabled})...")
         call_kwargs: dict = dict(
@@ -287,10 +353,10 @@ class AnswerGenerator:
             content = reasoning
 
         # Strip meta-instruction lines that thinking models sometimes echo from the system prompt
-        import re as _re
-        content = _re.sub(r'^(?:Constraint|Guideline|Instruction|Rule|Remember|Note):.*$', '', content, flags=_re.MULTILINE).strip()
-        content = _re.sub(r'^\d+\.\s*(?:Use ONLY|Cite sources|If multiple|If the sources|Keep answers|When discussing).*$', '', content, flags=_re.MULTILINE).strip()
-        content = _re.sub(r'\n{3,}', '\n\n', content).strip()
+        content = re.sub(r'^(?:Constraint|Guideline|Instruction|Rule|Remember|Note):.*$', '', content, flags=re.MULTILINE).strip()
+        content = re.sub(r'^\d+\.\s*(?:Use ONLY|Cite sources|If multiple|If the sources|Keep answers|When discussing).*$', '', content, flags=re.MULTILINE).strip()
+        content = re.sub(r'\n{3,}', '\n\n', content).strip()
+        content = _normalize_inline_citations(content)
         usage = {
             "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
             "completion_tokens": response.usage.completion_tokens if response.usage else 0,
@@ -329,7 +395,7 @@ class AnswerGenerator:
         """
         self._init_client()
 
-        context, citations, images = self._build_context(search_results)
+        context, citations, images = self._build_context(search_results, query)
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         if conversation_history:

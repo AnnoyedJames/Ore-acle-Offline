@@ -14,6 +14,9 @@ export interface Citation {
   page_url: string;
   section: string;
   cited_text: string;
+  lead_text?: string;
+  highlight_text?: string;
+  trail_text?: string;
 }
 
 export interface ImageResult {

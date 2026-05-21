@@ -87,6 +87,9 @@ class Citation(BaseModel):
     page_url: str
     section: str
     cited_text: str
+    lead_text: Optional[str] = None
+    highlight_text: Optional[str] = None
+    trail_text: Optional[str] = None
 
 class ImageResult(BaseModel):
     url: str
