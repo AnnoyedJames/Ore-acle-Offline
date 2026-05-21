@@ -107,19 +107,14 @@ export default function LLMSettingsPanel({ settings, onChange }: LLMSettingsPane
             </option>
           ))}
         </select>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-              {thinkingSupported
-                ? 'Show reasoning process'
-                : 'Disabled for this model to avoid slower, truncated answers'}
-            </p>
+        {activeModel && (
           <p className="text-[10px] text-gray-500 dark:text-gray-400">
             {activeModel.badge === 'Local'
               ? '🖥 Served by Ollama (local)'
-            onClick={() => thinkingSupported && set('thinking', !settings.thinking)}
-            disabled={!thinkingSupported}
-            className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+              : '☁ Served by OpenRouter (API)'}
+          </p>
         )}
-            } ${thinkingSupported ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+      </div>
 
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Search Mode</label>
@@ -207,22 +202,23 @@ export default function LLMSettingsPanel({ settings, onChange }: LLMSettingsPane
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Thinking Mode</p>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Show reasoning process (Gemma 4 / Gemini)</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+            {thinkingSupported
+              ? 'Show reasoning process'
+              : 'Disabled for this model to avoid slower, truncated answers'}
+          </p>
         </div>
         <button
-          type="button"
-          role="switch"
-          aria-checked={settings.thinking}
-          onClick={() => set('thinking', !settings.thinking)}
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+          type="button" role="switch" aria-checked={settings.thinking}
+          onClick={() => thinkingSupported && set('thinking', !settings.thinking)}
+          disabled={!thinkingSupported}
+          className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${
             settings.thinking ? 'bg-diamond-blue' : 'bg-gray-300 dark:bg-gray-600'
-          }`}
+          } ${thinkingSupported ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
         >
-          <span
-            className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-              settings.thinking ? 'translate-x-4' : 'translate-x-0'
-            }`}
-          />
+          <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+            settings.thinking ? 'translate-x-4' : 'translate-x-0'
+          }`} />
         </button>
       </div>
     </div>
