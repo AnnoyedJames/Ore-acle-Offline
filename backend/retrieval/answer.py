@@ -255,14 +255,18 @@ class AnswerGenerator:
         content = response.choices[0].message.content or ""
         # OpenRouter returns thinking tokens in message.reasoning; Ollama returns them
         # in message.thinking. Both are non-standard fields absent from the OpenAI SDK,
-        # so we access them via getattr. Prepend as <think>…</think> so the frontend
-        # ThinkingBlock parser picks them up transparently.
+        # so we access them via getattr.
         reasoning = (
             getattr(response.choices[0].message, "reasoning", None) or
             getattr(response.choices[0].message, "thinking", None)
         )
-        if reasoning:
+        if reasoning and content:
+            # Both present: prepend thinking block so the frontend ThinkingBlock renders it.
             content = f"<think>{reasoning}</think>\n{content}"
+        elif reasoning and not content:
+            # Model returned the full answer in the reasoning field (no separate content).
+            # This happens with some thinking-first models on OpenRouter — use it directly.
+            content = reasoning
         usage = {
             "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
             "completion_tokens": response.usage.completion_tokens if response.usage else 0,
@@ -367,9 +371,11 @@ class AnswerGenerator:
                     full_content += delta.content
                     yield ("token", delta.content)
 
-            # Edge case: reasoning but no content tokens (shouldn't happen in practice)
+            # Edge case: model put the full response in reasoning with no content tokens.
+            # This happens with thinking-first models (e.g. Gemini Flash Lite + reasoning effort).
+            # Don't wrap in <think> — this IS the actual answer, not a separate thought trace.
             if reasoning_buf and not reasoning_emitted:
-                full_content = f"<think>{reasoning_buf}</think>\n"
+                full_content = reasoning_buf
                 yield ("token", full_content)
 
             yield ("done", {
