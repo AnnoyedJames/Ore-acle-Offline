@@ -1,7 +1,7 @@
 // Mapping from canonical item names (lowercase_underscored) to actual texture filenames
 // when the simple normalization doesn't match the file on disk.
 const TEXTURE_OVERRIDES: Record<string, string> = {
-  'redstone_dust': 'redstone_dust_dot',
+  'redstone_dust': 'redstone',
   'compass': 'compass_00',
   'clock': 'clock_00',
   'crossbow': 'crossbow_standby',

@@ -721,6 +721,28 @@ Image metadata binding & URL-hash join & \\
 
 \end{table}
 
+\begin{table}[h]
+\caption{Generator hyperparameters. Retrieval is fixed to hybrid RRF ($\alpha=0.80$, top-$K$=10); see Table~\ref{tab:retriever-hyperparams}.}
+\label{tab:generator-hyperparams}
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Parameter} & \textbf{Value} & \textbf{Notes} \\
+\midrule
+\multicolumn{3}{l}{\textit{Generation}} \\
+Temperature & 0.3 & Low for factual accuracy \\
+Max output tokens & 1{,}024 & \\
+Max context tokens & 6{,}000 & Token budget for source chunks \\
+\midrule
+\multicolumn{3}{l}{\textit{Models evaluated}} \\
+Gemma 4 e2B & Ollama (local) & $\approx$2B params \\
+Gemma 4 e4B & Ollama (local) & $\approx$4B params \\
+Gemma 4 31B-IT & OpenRouter & $\approx$31B params \\
+Gemini 3.1 Flash Lite & OpenRouter & Proprietary \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 
 
 \end{document}

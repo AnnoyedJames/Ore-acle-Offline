@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1778055906.28691 "c:/Users/user/Documents/GitHub/Ore-acle-Offline/latex_paper/main_rebalanced.tex" "main_rebalanced.pdf" "main_rebalanced" 1778055907.93832 0
+["pdflatex"] 1779379777.35377 "c:/Users/user/Documents/GitHub/Ore-acle-Offline/latex_paper/main_rebalanced.tex" "main_rebalanced.pdf" "main_rebalanced" 1779379779.12898 0
   "C:/Program Files/MiKTeX/tex/generic/bigintcalc/bigintcalc.sty" 1576433602 40635 c40361e206be584d448876bba8a64a3b ""
   "C:/Program Files/MiKTeX/tex/generic/bitset/bitset.sty" 1575926576 33961 6b5c75130e435b2bfdb9f480a09a39f9 ""
   "C:/Program Files/MiKTeX/tex/generic/gettitlestring/gettitlestring.sty" 1576433666 8371 9d55b8bd010bc717624922fb3477d92e ""
@@ -224,13 +224,13 @@
   "C:/Users/user/AppData/Local/Programs/MiKTeX/tex/latex/url/url.sty" 1388490452 12796 8edb7d69a20b857904dd0ea757c14ec9 ""
   "C:/Users/user/AppData/Local/Programs/MiKTeX/tex/latex/xcolor/xcolor.sty" 1729265222 55384 b454dec21c2d9f45ec0b793f0995b992 ""
   "acl.sty" 1775663093 11913 80c16da31448a089d48639504144b10d ""
-  "c:/Users/user/Documents/GitHub/Ore-acle-Offline/latex_paper/main_rebalanced.tex" 1778055897 45228 260c36cf8b3dc403fdf6d4a5973be907 ""
+  "c:/Users/user/Documents/GitHub/Ore-acle-Offline/latex_paper/main_rebalanced.tex" 1779379774 46046 ee68b684965ee94fdb08e4695fa54f09 ""
   "figures/UI_show_crafting.png" 1777344740 234094 742e9321db70c098bda58defd7979761 ""
   "figures/crafting_recipe_book.png" 1775939231 362044 89b3acedeae9cec47bbc7c480849cf69 ""
   "figures/minecraft_complexity.png" 1775939230 655384 914a3eb00ca0f93380edf2b4f9879012 ""
-  "main_rebalanced.aux" 1778055907 13841 38daaa1223c21b642c7dc286b1a32149 "pdflatex"
-  "main_rebalanced.out" 1778055907 6179 99c73ef2f460eca955bd96b80d9bd7c0 "pdflatex"
-  "main_rebalanced.tex" 1778055897 45228 260c36cf8b3dc403fdf6d4a5973be907 ""
+  "main_rebalanced.aux" 1779379778 14293 1051855593089e4ab7e96e9b32702829 "pdflatex"
+  "main_rebalanced.out" 1779379778 6179 99c73ef2f460eca955bd96b80d9bd7c0 "pdflatex"
+  "main_rebalanced.tex" 1779379774 46046 ee68b684965ee94fdb08e4695fa54f09 ""
   (generated)
   "main_rebalanced.aux"
   "main_rebalanced.log"
