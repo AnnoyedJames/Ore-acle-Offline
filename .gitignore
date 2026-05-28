@@ -154,6 +154,12 @@ cython_debug/
 # VS Code
 .vscode/
 
+# AI agent configuration (Copilot instructions — not part of research codebase)
+.github/copilot-instructions.md
+
+# Model cache / stray ChromaDB index (data archived separately)
+BAAI/
+
 # Node
 node_modules/
 .next/
